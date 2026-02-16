@@ -32,13 +32,16 @@ async function register(req, res, next) {
       return error(res, 'An account with this email already exists.', 409);
     }
 
-    const user = await User.create({
+    // Build the user first so we can set the password hash
+    const user = User.build({
       email,
       name,
       address,
       phone,
       role: ROLES.SUPER_ADMIN,
     });
+
+    // Hash and set the password before saving to satisfy not-null validation
     await user.setPassword(password);
     await user.save();
 
