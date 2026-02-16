@@ -33,7 +33,8 @@ async function create(req, res, next) {
       return error(res, 'An account with this email already exists.', 409);
     }
 
-    const user = await User.create({
+    // Build the user first so we can set the password hash before validation
+    const user = User.build({
       email,
       name,
       phone,
@@ -41,6 +42,8 @@ async function create(req, res, next) {
       organizationType,
       createdById: req.user.id,
     });
+
+    // Hash and set the password before saving to satisfy not-null validation
     await user.setPassword(password);
     await user.save();
 
