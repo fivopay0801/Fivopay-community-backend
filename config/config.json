@@ -15,9 +15,9 @@
   },
   "production": {
     "username": "postgres",
-    "password": "Aryan",
-    "database": "Chatbot",
-    "host": "13.61.177.105",
+    "password": "Fivopay@123",
+    "database": "Fivopay",
+    "host": "35.77.33.79",
     "dialect": "postgres"
   }
 } 
