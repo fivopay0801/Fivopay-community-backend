@@ -13,22 +13,25 @@ const s3Client = new S3Client({
   },
 });
 
-const s3Storage = multerS3({
-  s3: s3Client,
-  bucket: process.env.S3_BUCKET_NAME,
-  metadata: function (req, file, cb) {
-    cb(null, { fieldName: file.fieldname });
-  },
-  key: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-    cb(null, 'users/' + uniqueSuffix + ext);
-  },
-  contentType: function (req, file, cb) {
-    cb(null, file.mimetype);
-  },
-  cacheControl: 'max-age=31536000',
-});
+const createS3Storage = (prefix = 'users/') =>
+  multerS3({
+    s3: s3Client,
+    bucket: process.env.S3_BUCKET_NAME,
+    metadata: function (req, file, cb) {
+      cb(null, { fieldName: file.fieldname });
+    },
+    key: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+      cb(null, prefix + uniqueSuffix + ext);
+    },
+    contentType: function (req, file, cb) {
+      cb(null, file.mimetype);
+    },
+    cacheControl: 'max-age=31536000',
+  });
+
+const s3Storage = createS3Storage('users/');
 
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
@@ -54,6 +57,30 @@ const uploadImage = (req, res, next) => {
         success: false,
         message: err.message,
       });
+    }
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'File upload failed.',
+      });
+    }
+    next();
+  });
+};
+
+const uploadProfileImage = multer({
+  storage: createS3Storage('devotees/'),
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 },
+}).single('profileImage');
+
+/** Only run multer when Content-Type is multipart (optional profile image for devotee update). */
+const optionalUploadProfileImage = (req, res, next) => {
+  const isMultipart = (req.headers['content-type'] || '').includes('multipart/form-data');
+  if (!isMultipart) return next();
+  uploadProfileImage(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ success: false, message: err.message });
     }
     if (err) {
       return res.status(400).json({
@@ -121,5 +148,6 @@ async function deleteFileFromS3(url) {
 module.exports = {
   uploadImage,
   optionalUploadImage,
+  optionalUploadProfileImage,
   deleteFileFromS3,
 };
