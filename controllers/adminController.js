@@ -1,6 +1,6 @@
 'use strict';
 
-const { User, Support, Donation, Devotee } = require('../models');
+const { User, Support, Donation, Devotee, DevoteeFavorite } = require('../models');
 const { ROLES } = require('../constants/roles');
 const { generateToken } = require('../middleware/auth');
 const { success, error } = require('../utils/response');
@@ -224,6 +224,48 @@ async function getMySupportTickets(req, res, next) {
 }
 
 /**
+ * GET /api/admin/devotees
+ * Get list of devotees who have selected this organization in their favorite list.
+ * Query: ?page=1&limit=20
+ */
+async function getMyDevotees(req, res, next) {
+  try {
+    const adminId = req.user.id;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await Devotee.findAndCountAll({
+      include: [
+        {
+          model: DevoteeFavorite,
+          as: 'favorites',
+          attributes: [],
+          where: { adminId },
+        },
+      ],
+      attributes: ['id', 'mobile', 'name', 'createdAt'],
+      distinct: true,
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']],
+    });
+
+    const devotees = rows.map((d) => d.toSafeObject());
+
+    return success(res, {
+      devotees,
+      total: count,
+      page,
+      limit,
+      totalPages: Math.ceil(count / limit),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * GET /api/admin/transactions
  * Get devotee donation/transaction list for this organization (temple, church, masjid, gurudwara).
  * Query: ?page=1&limit=20&status=captured|pending|failed (optional).
@@ -292,5 +334,6 @@ module.exports = {
   deleteProfile,
   raiseSupport,
   getMySupportTickets,
+  getMyDevotees,
   getDevoteeTransactions,
 };

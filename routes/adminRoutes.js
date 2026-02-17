@@ -18,6 +18,8 @@ router.delete('/profile', authenticate, requireAdmin, adminController.deleteProf
 router.post('/support', authenticate, requireAdmin, adminController.raiseSupport);
 router.get('/support', authenticate, requireAdmin, adminController.getMySupportTickets);
 
+router.get('/devotees', authenticate, requireAdmin, adminController.getMyDevotees);
+
 router.get('/transactions', authenticate, requireAdmin, adminController.getDevoteeTransactions);
 
 router.post('/events', authenticate, requireAdmin, eventController.createEvent);
