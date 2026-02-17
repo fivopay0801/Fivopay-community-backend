@@ -99,6 +99,18 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'createdById',
       as: 'createdAdmins',
     });
+    User.hasMany(models.DevoteeFavorite, {
+      foreignKey: 'adminId',
+      as: 'devoteeFavorites',
+    });
+    User.hasMany(models.Donation, {
+      foreignKey: 'adminId',
+      as: 'donations',
+    });
+    User.hasMany(models.Event, {
+      foreignKey: 'adminId',
+      as: 'events',
+    });
   };
 
   User.prototype.setPassword = async function (plainPassword) {

@@ -4,10 +4,12 @@
  * User roles for the donation platform.
  * SUPER_ADMIN: Chairman - can create and manage admins.
  * ADMIN: Organization admin (church, masjid, gurudwara, etc.).
+ * DEVOTEE: Donor - donates to organizations via mobile + OTP.
  */
 const ROLES = Object.freeze({
   SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
+  DEVOTEE: 'devotee',
 });
 
 /**
