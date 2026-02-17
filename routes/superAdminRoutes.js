@@ -15,6 +15,7 @@ router.put('/profile', authenticate, requireSuperAdmin, optionalUploadImage, sup
 router.delete('/profile', authenticate, requireSuperAdmin, superAdminController.deleteProfile);
 
 router.get('/admins', authenticate, requireSuperAdmin, superAdminController.getAllAdmins);
+router.get('/devotees', authenticate, requireSuperAdmin, superAdminController.getAllDevotees);
 
 router.get('/support', authenticate, requireSuperAdmin, superAdminController.getAllSupportTickets);
 router.patch('/support/:id', authenticate, requireSuperAdmin, superAdminController.updateSupportStatus);

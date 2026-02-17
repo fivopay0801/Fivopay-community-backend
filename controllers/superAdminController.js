@@ -1,7 +1,7 @@
 'use strict';
 
-const { User, Support } = require('../models');
-const { ROLES } = require('../constants/roles');
+const { User, Support, Devotee } = require('../models');
+const { ROLES, ORGANIZATION_TYPES_LIST } = require('../constants/roles');
 const { generateToken } = require('../middleware/auth');
 const { success, error } = require('../utils/response');
 const {
@@ -168,16 +168,40 @@ async function deleteProfile(req, res, next) {
 /**
  * GET /api/super-admin/admins
  * Get all admins (for Super Admin only).
+ * Query: ?organizationType=temple|church|masjid|gurudwara (optional - filter by org type).
  */
 async function getAllAdmins(req, res, next) {
   try {
+    const where = { role: ROLES.ADMIN };
+    const organizationType = req.query.organizationType;
+    if (organizationType && ORGANIZATION_TYPES_LIST.includes(organizationType.toLowerCase().trim())) {
+      where.organizationType = organizationType.toLowerCase().trim();
+    }
+
     const admins = await User.findAll({
-      where: { role: ROLES.ADMIN },
+      where,
       attributes: ['id', 'name', 'email', 'phone', 'organizationType', 'isActive', 'createdAt'],
-      order: [['createdAt', 'DESC']],
+      order: [['organizationType', 'ASC'], ['name', 'ASC'], ['createdAt', 'DESC']],
     });
 
     return success(res, { admins, total: admins.length });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/super-admin/devotees
+ * Get list of all devotees (for Super Admin only).
+ */
+async function getAllDevotees(req, res, next) {
+  try {
+    const devotees = await Devotee.findAll({
+      attributes: ['id', 'mobile', 'name', 'createdAt'],
+      order: [['createdAt', 'DESC']],
+    });
+
+    return success(res, { devotees, total: devotees.length });
   } catch (err) {
     next(err);
   }
@@ -234,6 +258,7 @@ module.exports = {
   updateProfile,
   deleteProfile,
   getAllAdmins,
+  getAllDevotees,
   getAllSupportTickets,
   updateSupportStatus,
 };

@@ -1,6 +1,6 @@
 'use strict';
 
-const { User, Support } = require('../models');
+const { User, Support, Donation, Devotee } = require('../models');
 const { ROLES } = require('../constants/roles');
 const { generateToken } = require('../middleware/auth');
 const { success, error } = require('../utils/response');
@@ -223,6 +223,66 @@ async function getMySupportTickets(req, res, next) {
   }
 }
 
+/**
+ * GET /api/admin/transactions
+ * Get devotee donation/transaction list for this organization (temple, church, masjid, gurudwara).
+ * Query: ?page=1&limit=20&status=captured|pending|failed (optional).
+ */
+async function getDevoteeTransactions(req, res, next) {
+  try {
+    const adminId = req.user.id;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    const statusFilter = req.query.status;
+
+    const where = { adminId };
+    if (statusFilter && ['pending', 'captured', 'failed'].includes(statusFilter)) {
+      where.status = statusFilter;
+    }
+
+    const { count, rows } = await Donation.findAndCountAll({
+      where,
+      include: [
+        {
+          model: Devotee,
+          attributes: ['id', 'mobile', 'name'],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset,
+      distinct: true,
+    });
+
+    const transactions = rows.map((d) => {
+      const plain = d.get({ plain: true });
+      return {
+        id: plain.id,
+        amount: plain.amount,
+        amountRupees: (Number(plain.amount) / 100).toFixed(2),
+        status: plain.status,
+        razorpayOrderId: plain.razorpayOrderId,
+        razorpayPaymentId: plain.razorpayPaymentId,
+        devotee: plain.Devotee
+          ? { id: plain.Devotee.id, mobile: plain.Devotee.mobile, name: plain.Devotee.name }
+          : null,
+        createdAt: plain.createdAt,
+      };
+    });
+
+    return success(res, {
+      transactions,
+      total: count,
+      page,
+      limit,
+      totalPages: Math.ceil(count / limit),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   create,
   login,
@@ -232,4 +292,5 @@ module.exports = {
   deleteProfile,
   raiseSupport,
   getMySupportTickets,
+  getDevoteeTransactions,
 };
