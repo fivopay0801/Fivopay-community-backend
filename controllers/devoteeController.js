@@ -5,6 +5,7 @@ const { ROLES } = require('../constants/roles');
 const { ORGANIZATION_TYPES_LIST } = require('../constants/roles');
 const { generateDevoteeToken } = require('../middleware/auth');
 const { success, error } = require('../utils/response');
+const { deleteFileFromS3 } = require('../middleware/upload');
 const { generateOtp, sendOtp } = require('../services/otpService');
 const {
   validateSendOtp,
@@ -92,8 +93,8 @@ async function verifyOtp(req, res, next) {
 
 /**
  * PUT /api/devotee/details
- * Update devotee basic details (name). Requires auth.
- * Body: { name }
+ * Update devotee details (name, email, city, profileImage). Requires auth.
+ * Body: { name?, email?, city? } or multipart with profileImage file.
  */
 async function updateDetails(req, res, next) {
   try {
@@ -101,9 +102,27 @@ async function updateDetails(req, res, next) {
     if (!validation.valid) {
       return error(res, 'Validation failed', 422, validation.errors);
     }
-    const { name } = validation.data;
+    const { name, email, city } = validation.data;
     const devotee = req.devotee;
-    await devotee.update({ name });
+
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (email !== undefined) updates.email = email;
+    if (city !== undefined) updates.city = city;
+
+    if (req.file?.location) {
+      if (devotee.profileImage) {
+        await deleteFileFromS3(devotee.profileImage);
+      }
+      updates.profileImage = req.file.location;
+    }
+    console.log("devote",devotee);
+
+    if (Object.keys(updates).length === 0) {
+      return error(res, 'No updates provided.', 400);
+    }
+
+    await devotee.update(updates);
     return success(res, { devotee: devotee.toSafeObject() }, 'Details updated successfully.');
   } catch (err) {
     next(err);

@@ -7,6 +7,8 @@ const MAX_FAVORITES = 5;
 const MOBILE_REGEX = /^[+]?[\d\s()-]{10,20}$/;
 const OTP_REGEX = /^\d{4}$/;
 const NAME_MAX_LENGTH = 255;
+const EMAIL_MAX_LENGTH = 255;
+const CITY_MAX_LENGTH = 100;
 
 function validateMobile(mobile) {
   if (!mobile || typeof mobile !== 'string') {
@@ -44,6 +46,33 @@ function validateName(name, required = false) {
   }
   if (trimmed.length > NAME_MAX_LENGTH) {
     return { valid: false, message: `Name must be at most ${NAME_MAX_LENGTH} characters.` };
+  }
+  return { valid: true, value: trimmed || null };
+}
+
+function validateEmail(email) {
+  if (!email || typeof email !== 'string') {
+    return { valid: true, value: null };
+  }
+  const trimmed = email.trim();
+  if (trimmed.length === 0) return { valid: true, value: null };
+  if (trimmed.length > EMAIL_MAX_LENGTH) {
+    return { valid: false, message: `Email must be at most ${EMAIL_MAX_LENGTH} characters.` };
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmed)) {
+    return { valid: false, message: 'Invalid email format.' };
+  }
+  return { valid: true, value: trimmed };
+}
+
+function validateCity(city) {
+  if (!city || typeof city !== 'string') {
+    return { valid: true, value: null };
+  }
+  const trimmed = city.trim();
+  if (trimmed.length > CITY_MAX_LENGTH) {
+    return { valid: false, message: `City must be at most ${CITY_MAX_LENGTH} characters.` };
   }
   return { valid: true, value: trimmed || null };
 }
@@ -107,11 +136,25 @@ function validateVerifyOtp(body) {
 }
 
 function validateDevoteeDetails(body) {
-  const nameResult = validateName(body.name, true);
-  if (!nameResult.valid) {
-    return { valid: false, errors: [nameResult.message] };
+  const errors = [];
+  const nameResult = validateName(body?.name, false);
+  const emailResult = validateEmail(body?.email);
+  const cityResult = validateCity(body?.city);
+
+  if (!nameResult.valid) errors.push(nameResult.message);
+  if (!emailResult.valid) errors.push(emailResult.message);
+  if (!cityResult.valid) errors.push(cityResult.message);
+
+  if (errors.length > 0) {
+    return { valid: false, errors };
   }
-  return { valid: true, data: { name: nameResult.value } };
+
+  const data = {};
+  if (nameResult.value != null) data.name = nameResult.value;
+  if (emailResult.value != null) data.email = emailResult.value;
+  if (cityResult.value != null) data.city = cityResult.value;
+
+  return { valid: true, data };
 }
 
 function validateSetFavorites(body) {

@@ -26,6 +26,21 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         field: 'name',
       },
+      email: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'email',
+      },
+      city: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'city',
+      },
+      profileImage: {
+        type: DataTypes.STRING(500),
+        allowNull: true,
+        field: 'profile_image',
+      },
       otpHash: {
         type: DataTypes.STRING(255),
         allowNull: true,
@@ -80,8 +95,8 @@ module.exports = (sequelize, DataTypes) => {
   };
 
   Devotee.prototype.toSafeObject = function () {
-    const { id, mobile, name, createdAt } = this.get();
-    return { id, mobile, name, createdAt };
+    const { id, mobile, name, email, city, profileImage, createdAt } = this.get();
+    return { id, mobile, name, email, city, profileImage, createdAt };
   };
 
   return Devotee;
