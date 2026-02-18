@@ -249,16 +249,21 @@ function donationToResponse(donation) {
   const ev = plain.event || plain.Event;
   return {
     id: plain.id,
+    devoteeId: plain.devoteeId,
+    organizationId: plain.adminId,
     amount: (plain.amount * 100).toFixed(0), // return in paise for consistency if needed, or just remove if API consumer expects rupees
     amountRupees: parseFloat(plain.amount).toFixed(2),
     status: plain.status,
-    organizationId: plain.adminId,
     organization: plain.organization,
     eventId: plain.eventId,
     event: ev ? { id: ev.id, title: ev.title, eventType: ev.eventType, raisedAmountPaise: ev.raisedAmountPaise, targetAmountPaise: ev.targetAmountPaise } : null,
     razorpayOrderId: plain.razorpayOrderId,
     razorpayPaymentId: plain.razorpayPaymentId,
+    razorpaySignature: plain.razorpaySignature,
+    utr: plain.utr,
+    transactionId: plain.transactionId,
     createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
   };
 }
 
