@@ -53,6 +53,18 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         field: 'razorpay_signature',
       },
+      utr: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        comment: 'Unique Transaction Reference (features in UPI/IMPS/NEFT)',
+        field: 'utr',
+      },
+      transactionId: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        comment: 'Bank Transaction ID or Payment Gateway Transaction ID',
+        field: 'transaction_id',
+      },
       status: {
         type: DataTypes.STRING(50),
         allowNull: false,

@@ -3,7 +3,7 @@
 const { User, Devotee, DevoteeFavorite, Donation, Event, sequelize } = require('../models');
 const { DONATION_STATUS } = require('../constants/donation');
 const { success, error } = require('../utils/response');
-const { createOrder, verifyPaymentSignature } = require('../services/razorpayService');
+const { createOrder, verifyPaymentSignature, fetchPayment } = require('../services/razorpayService');
 const { validateCreateDonation, validateVerifyDonation } = require('../validators/devoteeValidator');
 
 /**
@@ -118,9 +118,29 @@ async function verifyDonation(req, res, next) {
       return error(res, 'Payment verification failed. Invalid signature.', 400);
     }
 
+    // Fetch full payment details to get UTR / Bank Transaction ID
+    let utr = null;
+    let transactionId = null;
+    try {
+      const paymentDetails = await fetchPayment(razorpayPaymentId);
+      if (paymentDetails && paymentDetails.acquirer_data) {
+        utr = paymentDetails.acquirer_data.rrn || paymentDetails.acquirer_data.upi_transaction_id;
+        transactionId = paymentDetails.acquirer_data.bank_transaction_id;
+      }
+      // Fallback: if bank_transaction_id is missing, use razorpayPaymentId as transactionId
+      if (!transactionId) {
+        transactionId = razorpayPaymentId;
+      }
+    } catch (fetchErr) {
+      console.error('Error fetching payment details from Razorpay:', fetchErr);
+      // Proceed without UTR/BankTxnId if fetch fails, but log it.
+    }
+
     await donation.update({
       razorpayPaymentId,
       razorpaySignature,
+      utr,
+      transactionId,
       status: DONATION_STATUS.CAPTURED,
     });
 

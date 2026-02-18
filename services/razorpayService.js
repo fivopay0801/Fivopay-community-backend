@@ -62,8 +62,19 @@ function verifyPaymentSignature(orderId, paymentId, signature) {
   return expected === signature;
 }
 
+/**
+ * Fetch payment details from Razorpay to get method, UTR, etc.
+ * @param {string} paymentId
+ * @returns {Promise<Object>}
+ */
+async function fetchPayment(paymentId) {
+  const rzp = getRazorpay();
+  return rzp.payments.fetch(paymentId);
+}
+
 module.exports = {
   createOrder,
   verifyPaymentSignature,
+  fetchPayment,
   getRazorpayKeyId: () => razorpayKeyId,
 };
