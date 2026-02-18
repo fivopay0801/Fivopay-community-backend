@@ -427,13 +427,15 @@ async function getDevoteeTransactions(req, res, next) {
       return {
         id: plain.id,
         amount: plain.amount,
-        amountRupees: (Number(plain.amount) / 100).toFixed(2),
+        amountRupees: plain.amount,
         status: plain.status,
         razorpayOrderId: plain.razorpayOrderId,
         razorpayPaymentId: plain.razorpayPaymentId,
         devotee: plain.Devotee
           ? { id: plain.Devotee.id, mobile: plain.Devotee.mobile, name: plain.Devotee.name }
           : null,
+        transactionDate: plain.createdAt ? new Date(plain.createdAt).toLocaleDateString() : null,
+        transactionTime: plain.createdAt ? new Date(plain.createdAt).toLocaleTimeString() : null,
         createdAt: plain.createdAt,
       };
     });
