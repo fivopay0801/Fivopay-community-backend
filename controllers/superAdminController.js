@@ -1,6 +1,7 @@
 'use strict';
 
-const { User, Support, Devotee, sequelize } = require('../models');
+const { Op } = require('sequelize');
+const { User, Support, Devotee, Donation, sequelize } = require('../models');
 const { ROLES, ORGANIZATION_TYPES_LIST } = require('../constants/roles');
 const { generateToken } = require('../middleware/auth');
 const { success, error } = require('../utils/response');
@@ -258,6 +259,97 @@ async function updateSupportStatus(req, res, next) {
   }
 }
 
+/**
+ * GET /api/super-admin/stats
+ * Dashboard statistics: org counts, donation sums (30/90 days), support tickets, devotees.
+ */
+async function getDashboardStats(req, res, next) {
+  try {
+    // 1. Organization Counts by Type
+    const orgCounts = await User.findAll({
+      where: { role: ROLES.ADMIN, isActive: true },
+      attributes: ['organizationType', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+      group: ['organizationType'],
+      raw: true,
+    });
+
+    const organizations = {
+      total: 0,
+      temple: 0,
+      church: 0,
+      masjid: 0,
+      gurudwara: 0,
+      other: 0,
+    };
+
+    orgCounts.forEach((org) => {
+      const type = (org.organizationType || 'other').toLowerCase();
+      const count = parseInt(org.count, 10);
+      organizations.total += count;
+      if (organizations[type] !== undefined) {
+        organizations[type] = count;
+      } else {
+        organizations.other += count;
+      }
+    });
+
+    // 2. Donation Amounts (Last 30 & 90 Days)
+    const today = new Date();
+    const last30Days = new Date(today);
+    last30Days.setDate(today.getDate() - 30);
+    const last90Days = new Date(today);
+    last90Days.setDate(today.getDate() - 90);
+
+    const donationStats = await Donation.findAll({
+      attributes: [
+        [
+          sequelize.fn(
+            'SUM',
+            sequelize.literal(`CASE WHEN "created_at" >= '${last30Days.toISOString()}' THEN "amount" ELSE 0 END`)
+          ),
+          'last30Days',
+        ],
+        [
+          sequelize.fn(
+            'SUM',
+            sequelize.literal(`CASE WHEN "created_at" >= '${last90Days.toISOString()}' THEN "amount" ELSE 0 END`)
+          ),
+          'last90Days',
+        ],
+      ],
+      where: {
+        status: 'captured', // Using literal string or import constant if available. specific matching 'captured' status.
+      },
+      raw: true,
+    });
+
+    const totalDonationsLast30Days = parseFloat(donationStats[0]?.last30Days || 0).toFixed(2);
+    const totalDonationsLast90Days = parseFloat(donationStats[0]?.last90Days || 0).toFixed(2);
+
+    // 3. Total Support Tickets
+    const totalSupportTickets = await Support.count();
+
+    // 4. Total Devotees
+    const totalDevotees = await Devotee.count();
+
+    return success(res, {
+      organizations,
+      donations: {
+        last30Days: totalDonationsLast30Days,
+        last90Days: totalDonationsLast90Days,
+      },
+      supportTickets: {
+        total: totalSupportTickets,
+      },
+      devotees: {
+        total: totalDevotees,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -269,4 +361,5 @@ module.exports = {
   getAllDevotees,
   getAllSupportTickets,
   updateSupportStatus,
+  getDashboardStats,
 };

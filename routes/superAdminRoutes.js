@@ -20,4 +20,6 @@ router.get('/devotees', authenticate, requireSuperAdmin, superAdminController.ge
 router.get('/support', authenticate, requireSuperAdmin, superAdminController.getAllSupportTickets);
 router.patch('/support/:id', authenticate, requireSuperAdmin, superAdminController.updateSupportStatus);
 
+router.get('/stats', authenticate, requireSuperAdmin, superAdminController.getDashboardStats);
+
 module.exports = router;
