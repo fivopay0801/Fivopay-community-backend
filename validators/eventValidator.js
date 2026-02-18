@@ -1,5 +1,7 @@
 'use strict';
 
+const { EVENT_TYPES_LIST, EVENT_TYPES_WITH_TARGET } = require('../constants/eventTypes');
+
 const NAME_MAX_LENGTH = 255;
 const LOCATION_MAX_LENGTH = 500;
 
@@ -41,10 +43,41 @@ function validateTime(timeStr, fieldName = 'Time') {
   return { valid: true, value: trimmed };
 }
 
+function validateEventType(type) {
+  if (!type || typeof type !== 'string') {
+    return { valid: false, message: 'Event type is required.' };
+  }
+  const normalized = type.toLowerCase().trim();
+  if (!EVENT_TYPES_LIST.includes(normalized)) {
+    return {
+      valid: false,
+      message: `Event type must be one of: ${EVENT_TYPES_LIST.join(', ')}.`,
+    };
+  }
+  return { valid: true, value: normalized };
+}
+
+function validateTargetAmount(amount, required = false) {
+  if (amount === undefined || amount === null) {
+    return required ? { valid: false, message: 'Target amount is required for this event type.' } : { valid: true, value: null };
+  }
+  const num = Number(amount);
+  if (isNaN(num) || num < 1) {
+    return { valid: false, message: 'Target amount must be a positive number.' };
+  }
+  if (num > 100000000000) {
+    return { valid: false, message: 'Target amount exceeds maximum.' };
+  }
+  return { valid: true, value: Math.round(num * 100) };
+}
+
 function validateCreateEvent(body) {
   const errors = [];
   const titleResult = validateTitle(body.title);
   if (!titleResult.valid) errors.push(titleResult.message);
+
+  const typeResult = validateEventType(body.eventType);
+  if (!typeResult.valid) errors.push(typeResult.message);
 
   const dateResult = validateEventDate(body.eventDate);
   if (!dateResult.valid) errors.push(dateResult.message);
@@ -54,6 +87,12 @@ function validateCreateEvent(body) {
 
   const endResult = validateTime(body.endTime, 'end time');
   if (!endResult.valid) errors.push(endResult.message);
+
+  const endDateResult = body.endDate ? validateEventDate(body.endDate) : { valid: true, value: null };
+  if (endDateResult.valid === false) errors.push(endDateResult.message);
+  if (endDateResult.valid && endDateResult.value && dateResult.valid && dateResult.value && endDateResult.value < dateResult.value) {
+    errors.push('End date must be on or after event start date.');
+  }
 
   let location = null;
   if (body.location !== undefined && body.location !== null && body.location !== '') {
@@ -65,20 +104,28 @@ function validateCreateEvent(body) {
     }
   }
 
+  const eventType = typeResult.valid ? typeResult.value : null;
+  const targetRequired = eventType && EVENT_TYPES_WITH_TARGET.includes(eventType);
+  const targetResult = validateTargetAmount(body.targetAmount, targetRequired);
+  if (!targetResult.valid) errors.push(targetResult.message);
+
   if (errors.length > 0) return { valid: false, errors };
 
-  return {
-    valid: true,
-    data: {
-      title: titleResult.value,
-      eventDate: dateResult.value,
-      description: body.description ? String(body.description).trim() : null,
-      startTime: startResult.value,
-      endTime: endResult.value,
-      location,
-      imageUrl: body.imageUrl ? String(body.imageUrl).trim() : null,
-    },
+  const data = {
+    eventType: typeResult.value,
+    title: titleResult.value,
+    eventDate: dateResult.value,
+    endDate: endDateResult.valid ? endDateResult.value : null,
+    description: body.description ? String(body.description).trim() : null,
+    startTime: startResult.value,
+    endTime: endResult.value,
+    location,
+    imageUrl: body.imageUrl ? String(body.imageUrl).trim() : null,
+    targetAmountPaise: targetResult.value,
+    raisedAmountPaise: 0,
+    metadata: body.metadata && typeof body.metadata === 'object' ? body.metadata : null,
   };
+  return { valid: true, data };
 }
 
 function validateUpdateEvent(body) {
@@ -108,6 +155,14 @@ function validateUpdateEvent(body) {
     if (!r.valid) errors.push(r.message);
     else data.endTime = r.value;
   }
+  if (body.endDate !== undefined) {
+    if (!body.endDate) data.endDate = null;
+    else {
+      const r = validateEventDate(body.endDate);
+      if (!r.valid) errors.push(r.message);
+      else data.endDate = r.value;
+    }
+  }
   if (body.location !== undefined) {
     const loc = body.location ? String(body.location).trim() : null;
     if (loc && loc.length > LOCATION_MAX_LENGTH) {
@@ -118,6 +173,20 @@ function validateUpdateEvent(body) {
   }
   if (body.imageUrl !== undefined) {
     data.imageUrl = body.imageUrl ? String(body.imageUrl).trim() : null;
+  }
+  if (body.eventType !== undefined) {
+    const r = validateEventType(body.eventType);
+    if (!r.valid) errors.push(r.message);
+    else data.eventType = r.value;
+  }
+  if (body.targetAmountPaise !== undefined || body.targetAmount !== undefined) {
+    const val = body.targetAmountPaise ?? body.targetAmount;
+    const r = validateTargetAmount(val, false);
+    if (!r.valid) errors.push(r.message);
+    else data.targetAmountPaise = r.value;
+  }
+  if (body.metadata !== undefined) {
+    data.metadata = body.metadata && typeof body.metadata === 'object' ? body.metadata : null;
   }
   if (body.isActive !== undefined) {
     data.isActive = Boolean(body.isActive);

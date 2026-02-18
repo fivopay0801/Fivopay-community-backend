@@ -74,11 +74,35 @@ const uploadProfileImage = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 }).single('profileImage');
 
+const uploadEventImage = multer({
+  storage: createS3Storage('events/'),
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 },
+}).single('image');
+
 /** Only run multer when Content-Type is multipart (optional profile image for devotee update). */
 const optionalUploadProfileImage = (req, res, next) => {
   const isMultipart = (req.headers['content-type'] || '').includes('multipart/form-data');
   if (!isMultipart) return next();
   uploadProfileImage(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'File upload failed.',
+      });
+    }
+    next();
+  });
+};
+
+/** Only run multer when Content-Type is multipart (optional event image). */
+const optionalUploadEventImage = (req, res, next) => {
+  const isMultipart = (req.headers['content-type'] || '').includes('multipart/form-data');
+  if (!isMultipart) return next();
+  uploadEventImage(req, res, function (err) {
     if (err instanceof multer.MulterError) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -148,6 +172,7 @@ async function deleteFileFromS3(url) {
 module.exports = {
   uploadImage,
   optionalUploadImage,
+  optionalUploadEventImage,
   optionalUploadProfileImage,
   deleteFileFromS3,
 };

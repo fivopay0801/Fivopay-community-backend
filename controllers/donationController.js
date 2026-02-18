@@ -1,6 +1,6 @@
 'use strict';
 
-const { User, Devotee, DevoteeFavorite, Donation } = require('../models');
+const { User, Devotee, DevoteeFavorite, Donation, Event, sequelize } = require('../models');
 const { DONATION_STATUS } = require('../constants/donation');
 const { success, error } = require('../utils/response');
 const { createOrder, verifyPaymentSignature } = require('../services/razorpayService');
@@ -8,8 +8,8 @@ const { validateCreateDonation, validateVerifyDonation } = require('../validator
 
 /**
  * POST /api/devotee/donation/create-order
- * Create Razorpay order for donation. Devotee selects one of their 5 favorite orgs.
- * Body: { adminId, amount } - amount in paise or rupees (we use paise for Razorpay)
+ * Create Razorpay order for donation. Devotee selects org and optionally an event.
+ * Body: { adminId, amount, eventId? } - amount in rupees
  */
 async function createDonationOrder(req, res, next) {
   try {
@@ -17,7 +17,7 @@ async function createDonationOrder(req, res, next) {
     if (!validation.valid) {
       return error(res, 'Validation failed', 422, validation.errors);
     }
-    const { adminId, amountRupees } = validation.data;
+    const { adminId, amountRupees, eventId } = validation.data;
     const devotee = req.devotee;
 
     const amountPaise = Math.round(amountRupees * 100);
@@ -27,7 +27,6 @@ async function createDonationOrder(req, res, next) {
 
     const favorite = await DevoteeFavorite.findOne({
       where: { devoteeId: devotee.id, adminId },
-      include: [{ model: User, as: 'organization', attributes: ['id', 'name'] }],
     });
     if (!favorite) {
       return error(res, 'Organization must be one of your 5 favorites. Add it first.', 400);
@@ -38,31 +37,45 @@ async function createDonationOrder(req, res, next) {
       return error(res, 'Organization not found or inactive.', 400);
     }
 
-    const razorpayOrder = await createOrder(amountPaise, `don_${devotee.id}_${adminId}_${Date.now()}`);
+    let event = null;
+    if (eventId) {
+      event = await Event.findOne({
+        where: { id: eventId, adminId, isActive: true },
+      });
+      if (!event) {
+        return error(res, 'Event not found or does not belong to this organization.', 400);
+      }
+    }
+
+    const razorpayOrder = await createOrder(amountPaise, `don_${devotee.id}_${adminId}_${eventId || 'org'}_${Date.now()}`);
 
     const donation = await Donation.create({
       devoteeId: devotee.id,
       adminId,
+      eventId: eventId || null,
       amount: amountPaise,
       razorpayOrderId: razorpayOrder.orderId,
       status: DONATION_STATUS.PENDING,
     });
 
-    return success(
-      res,
-      {
-        donationId: donation.id,
-        razorpayOrderId: razorpayOrder.orderId,
-        amount: razorpayOrder.amount,
-        amountRupees: razorpayOrder.amount / 100,
-        currency: razorpayOrder.currency,
-        keyId: razorpayOrder.keyId,
-        organizationId: adminId,
-        organizationName: admin.name,
-      },
-      'Order created. Complete payment on client.',
-      201
-    );
+    const payload = {
+      donationId: donation.id,
+      razorpayOrderId: razorpayOrder.orderId,
+      amount: razorpayOrder.amount,
+      amountRupees: razorpayOrder.amount / 100,
+      currency: razorpayOrder.currency,
+      keyId: razorpayOrder.keyId,
+      organizationId: adminId,
+      organizationName: admin.name,
+    };
+    if (event) {
+      payload.eventId = event.id;
+      payload.eventTitle = event.title;
+      payload.eventRaisedAmountPaise = event.raisedAmountPaise;
+      payload.eventTargetAmountPaise = event.targetAmountPaise;
+    }
+
+    return success(res, payload, 'Order created. Complete payment on client.', 201);
   } catch (err) {
     next(err);
   }
@@ -111,6 +124,14 @@ async function verifyDonation(req, res, next) {
       status: DONATION_STATUS.CAPTURED,
     });
 
+    if (donation.eventId) {
+      const ev = await Event.findByPk(donation.eventId);
+      if (ev) {
+        const currentRaised = Number(ev.raisedAmountPaise || 0);
+        await ev.update({ raisedAmountPaise: currentRaised + Number(donation.amount) });
+      }
+    }
+
     return success(
       res,
       { donation: donationToResponse(donation) },
@@ -141,8 +162,13 @@ async function getMyDonations(req, res, next) {
           as: 'organization',
           attributes: ['id', 'name', 'organizationType', 'profileImage'],
         },
+        {
+          model: Event,
+          as: 'event',
+          attributes: ['id', 'title', 'eventType', 'raisedAmountPaise', 'targetAmountPaise'],
+        },
       ],
-      order: [['createdAt', 'DESC']],
+      order: sequelize.literal('"Donation"."created_at" DESC'),
       limit,
       offset,
       distinct: true,
@@ -198,6 +224,7 @@ async function getStats(req, res, next) {
 
 function donationToResponse(donation) {
   const plain = donation.get ? donation.get({ plain: true }) : donation;
+  const ev = plain.event || plain.Event;
   return {
     id: plain.id,
     amount: plain.amount,
@@ -205,6 +232,8 @@ function donationToResponse(donation) {
     status: plain.status,
     organizationId: plain.adminId,
     organization: plain.organization,
+    eventId: plain.eventId,
+    event: ev ? { id: ev.id, title: ev.title, eventType: ev.eventType, raisedAmountPaise: ev.raisedAmountPaise, targetAmountPaise: ev.targetAmountPaise } : null,
     razorpayOrderId: plain.razorpayOrderId,
     razorpayPaymentId: plain.razorpayPaymentId,
     createdAt: plain.createdAt,

@@ -25,6 +25,13 @@ module.exports = (sequelize, DataTypes) => {
         references: { model: 'users', key: 'id' },
         onDelete: 'CASCADE',
       },
+      eventId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: 'event_id',
+        references: { model: 'events', key: 'id' },
+        onDelete: 'SET NULL',
+      },
       amount: {
         type: DataTypes.BIGINT,
         allowNull: false,
@@ -62,6 +69,7 @@ module.exports = (sequelize, DataTypes) => {
       indexes: [
         { fields: ['devotee_id'] },
         { fields: ['admin_id'] },
+        { fields: ['event_id'] },
         { fields: ['razorpay_order_id'] },
         { fields: ['status'] },
       ],
@@ -71,6 +79,7 @@ module.exports = (sequelize, DataTypes) => {
   Donation.associate = (models) => {
     Donation.belongsTo(models.Devotee, { foreignKey: 'devoteeId' });
     Donation.belongsTo(models.User, { foreignKey: 'adminId', as: 'organization' });
+    Donation.belongsTo(models.Event, { foreignKey: 'eventId', as: 'event' });
   };
 
   return Donation;

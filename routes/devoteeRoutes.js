@@ -34,4 +34,6 @@ router.post('/donation/verify', authenticateDevotee, donationController.verifyDo
 router.get('/donations', authenticateDevotee, donationController.getMyDonations);
 router.get('/stats', authenticateDevotee, donationController.getStats);
 
+router.post('/support', authenticateDevotee, devoteeController.raiseSupport);
+
 module.exports = router;

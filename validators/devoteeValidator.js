@@ -168,10 +168,20 @@ function validateSetFavorites(body) {
 function validateCreateDonation(body) {
   const errors = [];
   const adminId = body.adminId;
+  const eventId = body.eventId;
   const amount = body.amount;
 
   if (!adminId || !Number.isInteger(Number(adminId)) || Number(adminId) <= 0) {
     errors.push('Valid adminId (organization) is required.');
+  }
+  let eventIdNum = null;
+  if (eventId !== undefined && eventId !== null && eventId !== '') {
+    const n = Number(eventId);
+    if (!Number.isInteger(n) || n <= 0) {
+      errors.push('eventId must be a positive integer.');
+    } else {
+      eventIdNum = n;
+    }
   }
   const amountNum = Number(amount);
   if ((typeof amount !== 'number' && typeof amount !== 'string') || isNaN(amountNum)) {
@@ -187,6 +197,7 @@ function validateCreateDonation(body) {
     valid: true,
     data: {
       adminId: Number(adminId),
+      eventId: eventIdNum,
       amountRupees: Math.floor(amountNum * 100) / 100,
     },
   };

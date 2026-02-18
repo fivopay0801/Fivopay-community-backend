@@ -1,7 +1,10 @@
 'use strict';
 
-const { User, Support, Donation, Devotee, DevoteeFavorite } = require('../models');
+const { Op } = require('sequelize');
+const { User, Support, Donation, Devotee, DevoteeFavorite, sequelize } = require('../models');
 const { ROLES } = require('../constants/roles');
+const { DONATION_STATUS } = require('../constants/donation');
+const { SUPPORT_STATUS_LIST } = require('../constants/support');
 const { generateToken } = require('../middleware/auth');
 const { success, error } = require('../utils/response');
 const {
@@ -209,15 +212,59 @@ async function raiseSupport(req, res, next) {
 
 /**
  * GET /api/admin/support
- * Get all support tickets raised by this admin.
+ * Get all support tickets for this admin: (1) raised by this admin, (2) raised by devotees for this admin.
  */
 async function getMySupportTickets(req, res, next) {
   try {
     const tickets = await Support.findAll({
       where: { adminId: req.user.id },
-      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          model: Devotee,
+          as: 'devotee',
+          attributes: ['id', 'mobile', 'name'],
+          required: false,
+        },
+      ],
+      order: sequelize.literal('"Support"."created_at" DESC'),
     });
-    return success(res, { tickets, total: tickets.length });
+    const list = tickets.map((t) => {
+      const plain = t.get({ plain: true });
+      return {
+        ...plain,
+        raisedBy: plain.devoteeId ? 'devotee' : 'admin',
+        devotee: plain.devotee ? { id: plain.devotee.id, mobile: plain.devotee.mobile, name: plain.devotee.name } : null,
+      };
+    });
+    return success(res, { tickets: list, total: list.length });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * PATCH /api/admin/support/:id
+ * Update support ticket status (pending | resolved). Only for tickets belonging to this admin.
+ */
+async function updateSupportStatus(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const adminId = req.user.id;
+
+    if (!status || !SUPPORT_STATUS_LIST.includes(status)) {
+      return error(res, 'Valid status required: pending or resolved.', 422);
+    }
+
+    const ticket = await Support.findOne({
+      where: { id, adminId },
+    });
+    if (!ticket) {
+      return error(res, 'Support ticket not found.', 404);
+    }
+
+    await ticket.update({ status });
+    return success(res, { ticket: ticket.get({ plain: true }) }, 'Support ticket updated successfully.');
   } catch (err) {
     next(err);
   }
@@ -235,30 +282,108 @@ async function getMyDevotees(req, res, next) {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
 
-    const { count, rows } = await Devotee.findAndCountAll({
-      include: [
-        {
-          model: DevoteeFavorite,
-          as: 'favorites',
-          attributes: [],
-          where: { adminId },
-        },
-      ],
-      attributes: ['id', 'mobile', 'name', 'createdAt'],
-      distinct: true,
-      limit,
-      offset,
-      order: [['createdAt', 'DESC']],
+    // First, get all unique devotee IDs that have this admin in their favorites.
+    const favoriteRows = await DevoteeFavorite.findAll({
+      where: { adminId },
+      attributes: ['devoteeId'],
     });
 
-    const devotees = rows.map((d) => d.toSafeObject());
+    const allIds = [...new Set(favoriteRows.map((f) => f.devoteeId))];
+    const total = allIds.length;
+
+    if (total === 0) {
+      return success(res, {
+        devotees: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      });
+    }
+
+    // Manual pagination over the ID list
+    const pagedIds = allIds.slice(offset, offset + limit);
+
+    const devoteesRows = await Devotee.findAll({
+      where: { id: pagedIds },
+      // No explicit order here to avoid referencing a non-existent "createdAt" column in SQL.
+    });
+
+    const devotees = devoteesRows.map((d) => d.toSafeObject());
 
     return success(res, {
       devotees,
-      total: count,
+      total,
       page,
       limit,
-      totalPages: Math.ceil(count / limit),
+      totalPages: Math.ceil(total / limit),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/admin/dashboard
+ * Get all community overview stats for the admin/organization in one API.
+ * Returns: totalRegisteredDevotees, totalDonateDevotees, totalDonation, last30Days, last90Days.
+ */
+async function getDashboard(req, res, next) {
+  try {
+    const adminId = req.user.id;
+
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+    const capturedWhere = { adminId, status: DONATION_STATUS.CAPTURED };
+
+    const [
+      totalRegisteredDevotees,
+      totalDonateDevoteesResult,
+      totalDonationResult,
+      last30DaysResult,
+      last90DaysResult,
+    ] = await Promise.all([
+      DevoteeFavorite.count({
+        where: { adminId },
+        distinct: true,
+        col: 'devotee_id',
+      }),
+      Donation.findAll({
+        where: capturedWhere,
+        attributes: [[sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('devotee_id'))), 'count']],
+        raw: true,
+      }),
+      Donation.sum('amount', { where: capturedWhere }),
+      Donation.sum('amount', {
+        where: {
+          ...capturedWhere,
+          [Op.and]: [sequelize.where(sequelize.col('created_at'), Op.gte, thirtyDaysAgo)],
+        },
+      }),
+      Donation.sum('amount', {
+        where: {
+          ...capturedWhere,
+          [Op.and]: [sequelize.where(sequelize.col('created_at'), Op.gte, ninetyDaysAgo)],
+        },
+      }),
+    ]);
+
+    const totalDonateDevotees = parseInt(totalDonateDevoteesResult[0]?.count || 0, 10);
+    const totalDonationPaise = parseInt(totalDonationResult || 0, 10);
+    const last30DaysPaise = parseInt(last30DaysResult || 0, 10);
+    const last90DaysPaise = parseInt(last90DaysResult || 0, 10);
+
+    return success(res, {
+      totalRegisteredDevotees,
+      totalDonateDevotees,
+      totalDonationPaise,
+      totalDonationRupees: (totalDonationPaise / 100).toFixed(2),
+      last30DaysPaise,
+      last30DaysRupees: (last30DaysPaise / 100).toFixed(2),
+      last90DaysPaise,
+      last90DaysRupees: (last90DaysPaise / 100).toFixed(2),
     });
   } catch (err) {
     next(err);
@@ -291,7 +416,7 @@ async function getDevoteeTransactions(req, res, next) {
           attributes: ['id', 'mobile', 'name'],
         },
       ],
-      order: [['createdAt', 'DESC']],
+      order: sequelize.literal('"Donation"."created_at" DESC'),
       limit,
       offset,
       distinct: true,
@@ -332,8 +457,10 @@ module.exports = {
   getProfile,
   updateProfile,
   deleteProfile,
+  getDashboard,
   raiseSupport,
   getMySupportTickets,
+  updateSupportStatus,
   getMyDevotees,
   getDevoteeTransactions,
 };

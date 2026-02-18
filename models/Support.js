@@ -35,6 +35,13 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         field: 'admin_id',
       },
+      devoteeId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: 'devotee_id',
+        references: { model: 'devotees', key: 'id' },
+        onDelete: 'SET NULL',
+      },
     },
     {
       tableName: 'support_tickets',
@@ -49,6 +56,10 @@ module.exports = (sequelize, DataTypes) => {
     Support.belongsTo(models.User, {
       foreignKey: 'adminId',
       as: 'admin',
+    });
+    Support.belongsTo(models.Devotee, {
+      foreignKey: 'devoteeId',
+      as: 'devotee',
     });
   };
 

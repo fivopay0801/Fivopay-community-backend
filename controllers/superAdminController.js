@@ -1,6 +1,6 @@
 'use strict';
 
-const { User, Support, Devotee } = require('../models');
+const { User, Support, Devotee, sequelize } = require('../models');
 const { ROLES, ORGANIZATION_TYPES_LIST } = require('../constants/roles');
 const { generateToken } = require('../middleware/auth');
 const { success, error } = require('../utils/response');
@@ -180,8 +180,16 @@ async function getAllAdmins(req, res, next) {
 
     const admins = await User.findAll({
       where,
-      attributes: ['id', 'name', 'email', 'phone', 'organizationType', 'isActive', 'createdAt'],
-      order: [['organizationType', 'ASC'], ['name', 'ASC'], ['createdAt', 'DESC']],
+      attributes: [
+        'id',
+        'name',
+        'email',
+        'phone',
+        'organizationType',
+        'isActive',
+        [sequelize.col('created_at'), 'createdAt'],
+      ],
+      order: [['organizationType', 'ASC'], ['name', 'ASC'], sequelize.literal('"User"."created_at" DESC')],
     });
 
     return success(res, { admins, total: admins.length });
@@ -197,8 +205,8 @@ async function getAllAdmins(req, res, next) {
 async function getAllDevotees(req, res, next) {
   try {
     const devotees = await Devotee.findAll({
-      attributes: ['id', 'mobile', 'name', 'createdAt'],
-      order: [['createdAt', 'DESC']],
+      attributes: ['id', 'mobile', 'name', [sequelize.col('created_at'), 'createdAt']],
+      order: sequelize.literal('"Devotee"."created_at" DESC'),
     });
 
     return success(res, { devotees, total: devotees.length });
@@ -214,7 +222,7 @@ async function getAllDevotees(req, res, next) {
 async function getAllSupportTickets(req, res, next) {
   try {
     const tickets = await Support.findAll({
-      order: [['createdAt', 'DESC']],
+      order: sequelize.literal('"Support"."created_at" DESC'),
     });
 
     return success(res, { tickets, total: tickets.length });

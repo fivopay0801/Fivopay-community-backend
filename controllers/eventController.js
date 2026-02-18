@@ -1,15 +1,18 @@
 'use strict';
 
 const { Op } = require('sequelize');
-const { Event, User, DevoteeFavorite } = require('../models');
+const { Event, User, DevoteeFavorite, sequelize } = require('../models');
 const { ROLES } = require('../constants/roles');
+const { EVENT_TYPES_LIST } = require('../constants/eventTypes');
 const { success, error } = require('../utils/response');
 const { validateCreateEvent, validateUpdateEvent } = require('../validators/eventValidator');
+const { deleteFileFromS3 } = require('../middleware/upload');
 
 /**
  * POST /api/admin/events
- * Create an upcoming event for the admin's organization.
- * Body: { title, eventDate, description?, startTime?, endTime?, location?, imageUrl? }
+ * Create an event (general, crowdfunding, or charity).
+ * Body (JSON or multipart): eventType, title, eventDate, endDate?, targetAmount?, description?, startTime?, endTime?, location?, metadata?
+ * Optional: multipart with 'image' field for event image (S3).
  */
 async function createEvent(req, res, next) {
   try {
@@ -19,12 +22,51 @@ async function createEvent(req, res, next) {
     }
 
     const admin = req.user;
+    const { title, eventDate, startTime } = validation.data;
+
+    const duplicate = await Event.findOne({
+      where: {
+        adminId: admin.id,
+        title,
+        eventDate,
+        startTime: startTime || null,
+        isActive: true,
+        [Op.and]: [
+          sequelize.where(sequelize.col('created_at'), Op.gte, new Date(Date.now() - 60000)),
+        ],
+      },
+    });
+    if (duplicate) {
+      return error(res, 'A similar event was just created. Please refresh to see it.', 409);
+    }
+
+    const eventData = { ...validation.data };
+    if (req.file && req.file.location) {
+      eventData.imageUrl = req.file.location;
+    }
+
     const event = await Event.create({
       adminId: admin.id,
-      ...validation.data,
+      ...eventData,
     });
 
     return success(res, { event: eventToResponse(event) }, 'Event created successfully.', 201);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/admin/event-types
+ * List available event types (general, crowdfunding, charity).
+ */
+async function getEventTypes(req, res, next) {
+  try {
+    const types = EVENT_TYPES_LIST.map((t) => ({
+      type: t,
+      label: t.charAt(0).toUpperCase() + t.slice(1),
+    }));
+    return success(res, { eventTypes: types });
   } catch (err) {
     next(err);
   }
@@ -52,10 +94,7 @@ async function getAdminEvents(req, res, next) {
 
     const { count, rows } = await Event.findAndCountAll({
       where,
-      order: [
-        ['eventDate', 'ASC'],
-        ['startTime', 'ASC'],
-      ],
+      order: sequelize.literal('"Event"."event_date" ASC, "Event"."start_time" ASC NULLS LAST'),
       limit,
       offset,
       distinct: true,
@@ -96,7 +135,15 @@ async function updateEvent(req, res, next) {
       return error(res, 'Validation failed', 422, validation.errors);
     }
 
-    await event.update(validation.data);
+    const updates = { ...validation.data };
+    if (req.file && req.file.location) {
+      if (event.imageUrl) {
+        await deleteFileFromS3(event.imageUrl);
+      }
+      updates.imageUrl = req.file.location;
+    }
+
+    await event.update(updates);
     return success(res, { event: eventToResponse(event) }, 'Event updated successfully.');
   } catch (err) {
     next(err);
@@ -153,10 +200,7 @@ async function getOrganizationEvents(req, res, next) {
         eventDate: { [Op.gte]: today },
         isActive: true,
       },
-      order: [
-        ['eventDate', 'ASC'],
-        ['startTime', 'ASC'],
-      ],
+      order: sequelize.literal('"Event"."event_date" ASC, "Event"."start_time" ASC NULLS LAST'),
     });
 
     const list = events.map((e) => eventToResponse(e));
@@ -207,10 +251,7 @@ async function getFavoritesEvents(req, res, next) {
           attributes: ['id', 'name', 'organizationType', 'profileImage'],
         },
       ],
-      order: [
-        ['eventDate', 'ASC'],
-        ['startTime', 'ASC'],
-      ],
+      order: sequelize.literal('"Event"."event_date" ASC, "Event"."start_time" ASC NULLS LAST'),
     });
 
     const list = events.map((e) => {
@@ -230,16 +271,29 @@ async function getFavoritesEvents(req, res, next) {
 
 function eventToResponse(event) {
   const plain = event.get ? event.get({ plain: true }) : event;
+  const targetPaise = plain.targetAmountPaise ?? null;
+  const raisedPaise = Number(plain.raisedAmountPaise ?? 0);
+  const progressPercentage = targetPaise && targetPaise > 0
+    ? Math.min(100, Math.round((raisedPaise / targetPaise) * 100))
+    : null;
   return {
     id: plain.id,
     adminId: plain.adminId,
+    eventType: plain.eventType,
     title: plain.title,
     description: plain.description,
     eventDate: plain.eventDate,
+    endDate: plain.endDate,
     startTime: plain.startTime,
     endTime: plain.endTime,
     location: plain.location,
     imageUrl: plain.imageUrl,
+    targetAmountPaise: targetPaise,
+    targetAmountRupees: targetPaise ? (targetPaise / 100).toFixed(2) : null,
+    raisedAmountPaise: raisedPaise,
+    raisedAmountRupees: (raisedPaise / 100).toFixed(2),
+    progressPercentage,
+    metadata: plain.metadata,
     isActive: plain.isActive,
     createdAt: plain.createdAt,
   };
@@ -247,6 +301,7 @@ function eventToResponse(event) {
 
 module.exports = {
   createEvent,
+  getEventTypes,
   getAdminEvents,
   updateEvent,
   deleteEvent,

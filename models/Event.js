@@ -1,5 +1,7 @@
 'use strict';
 
+const { EVENT_TYPES } = require('../constants/eventTypes');
+
 module.exports = (sequelize, DataTypes) => {
   const Event = sequelize.define(
     'Event',
@@ -15,6 +17,12 @@ module.exports = (sequelize, DataTypes) => {
         field: 'admin_id',
         references: { model: 'users', key: 'id' },
         onDelete: 'CASCADE',
+      },
+      eventType: {
+        type: DataTypes.STRING(50),
+        allowNull: false,
+        defaultValue: EVENT_TYPES.GENERAL,
+        field: 'event_type',
       },
       title: {
         type: DataTypes.STRING(255),
@@ -36,6 +44,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         field: 'start_time',
       },
+      endDate: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+        field: 'end_date',
+      },
       endTime: {
         type: DataTypes.STRING(10),
         allowNull: true,
@@ -50,6 +63,24 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(500),
         allowNull: true,
         field: 'image_url',
+      },
+      targetAmountPaise: {
+        type: DataTypes.BIGINT,
+        allowNull: true,
+        comment: 'Target amount in paise (for crowdfunding/charity)',
+        field: 'target_amount_paise',
+      },
+      raisedAmountPaise: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+        defaultValue: 0,
+        comment: 'Raised amount in paise',
+        field: 'raised_amount_paise',
+      },
+      metadata: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        field: 'metadata',
       },
       isActive: {
         type: DataTypes.BOOLEAN,
@@ -67,6 +98,7 @@ module.exports = (sequelize, DataTypes) => {
       indexes: [
         { fields: ['admin_id'] },
         { fields: ['event_date'] },
+        { fields: ['event_type'] },
         { fields: ['admin_id', 'event_date'] },
       ],
     }
@@ -76,6 +108,10 @@ module.exports = (sequelize, DataTypes) => {
     Event.belongsTo(models.User, {
       foreignKey: 'adminId',
       as: 'organization',
+    });
+    Event.hasMany(models.Donation, {
+      foreignKey: 'eventId',
+      as: 'donations',
     });
   };
 

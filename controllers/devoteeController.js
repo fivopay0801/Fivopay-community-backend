@@ -1,6 +1,6 @@
 'use strict';
 
-const { User, Devotee, DevoteeFavorite } = require('../models');
+const { User, Devotee, DevoteeFavorite, Support } = require('../models');
 const { ROLES } = require('../constants/roles');
 const { ORGANIZATION_TYPES_LIST } = require('../constants/roles');
 const { generateDevoteeToken } = require('../middleware/auth');
@@ -14,6 +14,7 @@ const {
   validateSetFavorites,
   validateOrganizationType,
 } = require('../validators/devoteeValidator');
+const { validateDevoteeRaiseSupport } = require('../validators/supportValidator');
 
 const MAX_FAVORITES = 5;
 
@@ -285,6 +286,52 @@ async function updateFavorites(req, res, next) {
   return setFavorites(req, res, next);
 }
 
+/**
+ * POST /api/devotee/support
+ * Raise a support ticket for a specific organization (admin). Admin must be one of devotee's favorites.
+ * Body: { adminId, reason }
+ */
+async function raiseSupport(req, res, next) {
+  try {
+    const validation = validateDevoteeRaiseSupport(req.body);
+    if (!validation.valid) {
+      return error(res, 'Validation failed', 422, validation.errors);
+    }
+    const { adminId, reason } = validation.data;
+    const devotee = req.devotee;
+
+    const favorite = await DevoteeFavorite.findOne({
+      where: { devoteeId: devotee.id, adminId },
+    });
+    if (!favorite) {
+      return error(res, 'You can raise support only for an organization in your favorites.', 400);
+    }
+
+    const admin = await User.findByPk(adminId);
+    if (!admin || !admin.isActive) {
+      return error(res, 'Organization not found or inactive.', 400);
+    }
+
+    const ticket = await Support.create({
+      reason,
+      adminId,
+      devoteeId: devotee.id,
+      adminName: devotee.name || 'Devotee',
+      adminEmail: devotee.mobile || devotee.email || 'N/A',
+      status: 'pending',
+    });
+
+    return success(
+      res,
+      { ticket: ticket.get({ plain: true }) },
+      'Support ticket raised successfully. The organization will respond to your request.',
+      201
+    );
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   sendOtpHandler,
   verifyOtp,
@@ -295,4 +342,5 @@ module.exports = {
   getFavorites,
   setFavorites,
   updateFavorites,
+  raiseSupport,
 };
