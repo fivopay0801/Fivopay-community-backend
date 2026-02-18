@@ -20,8 +20,8 @@ async function createDonationOrder(req, res, next) {
     const { adminId, amountRupees, eventId } = validation.data;
     const devotee = req.devotee;
 
-    const amountPaise = Math.round(amountRupees * 100);
-    if (amountPaise < 100) {
+    const amountPaise = amountRupees;
+    if (amountPaise < 1) {
       return error(res, 'Minimum donation is ₹1.', 422);
     }
 
