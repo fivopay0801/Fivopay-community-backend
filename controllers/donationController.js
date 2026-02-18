@@ -20,9 +20,9 @@ async function createDonationOrder(req, res, next) {
     const { adminId, amountRupees, eventId } = validation.data;
     const devotee = req.devotee;
 
-    const amountPaise = amountRupees;
-    if (amountPaise < 1) {
-      return error(res, 'Minimum donation is ₹1.', 422);
+    const amountPaise = Math.round(amountRupees * 100);
+    if (amountPaise < 1000) {
+      return error(res, 'Minimum donation is ₹10.', 422);
     }
 
     const favorite = await DevoteeFavorite.findOne({
@@ -53,7 +53,7 @@ async function createDonationOrder(req, res, next) {
       devoteeId: devotee.id,
       adminId,
       eventId: eventId || null,
-      amount: amountPaise,
+      amount: amountRupees,
       razorpayOrderId: razorpayOrder.orderId,
       status: DONATION_STATUS.PENDING,
     });
@@ -148,7 +148,9 @@ async function verifyDonation(req, res, next) {
       const ev = await Event.findByPk(donation.eventId);
       if (ev) {
         const currentRaised = Number(ev.raisedAmountPaise || 0);
-        await ev.update({ raisedAmountPaise: currentRaised + Number(donation.amount) });
+        // donation.amount is in Rupees, convert to Paise for Event
+        const donationAmountPaise = Math.round(Number(donation.amount) * 100);
+        await ev.update({ raisedAmountPaise: currentRaised + donationAmountPaise });
       }
     }
 
@@ -223,14 +225,14 @@ async function getStats(req, res, next) {
       },
       attributes: [
         [Donation.sequelize.fn('COUNT', Donation.sequelize.col('id')), 'totalCount'],
-        [Donation.sequelize.fn('SUM', Donation.sequelize.col('amount')), 'totalAmountPaise'],
+        [Donation.sequelize.fn('SUM', Donation.sequelize.col('amount')), 'totalAmountRupees'],
       ],
       raw: true,
     });
 
     const totalCount = parseInt(stats[0]?.totalCount || 0, 10);
-    const totalAmountPaise = parseInt(stats[0]?.totalAmountPaise || 0, 10);
-    const totalAmountRupees = totalAmountPaise / 100;
+    const totalAmountRupees = parseFloat(stats[0]?.totalAmountRupees || 0);
+    const totalAmountPaise = Math.round(totalAmountRupees * 100);
 
     return success(res, {
       totalDonations: totalCount,
@@ -247,8 +249,8 @@ function donationToResponse(donation) {
   const ev = plain.event || plain.Event;
   return {
     id: plain.id,
-    amount: plain.amount,
-    amountRupees: (plain.amount / 100).toFixed(2),
+    amount: (plain.amount * 100).toFixed(0), // return in paise for consistency if needed, or just remove if API consumer expects rupees
+    amountRupees: parseFloat(plain.amount).toFixed(2),
     status: plain.status,
     organizationId: plain.adminId,
     organization: plain.organization,

@@ -33,9 +33,9 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: 'SET NULL',
       },
       amount: {
-        type: DataTypes.BIGINT,
+        type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
-        comment: 'Amount in paise (INR)',
+        comment: 'Amount in Rupees (INR)',
         field: 'amount',
       },
       razorpayOrderId: {
