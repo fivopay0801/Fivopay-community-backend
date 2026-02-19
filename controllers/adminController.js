@@ -371,19 +371,16 @@ async function getDashboard(req, res, next) {
     ]);
 
     const totalDonateDevotees = parseInt(totalDonateDevoteesResult[0]?.count || 0, 10);
-    const totalDonationPaise = parseInt(totalDonationResult || 0, 10);
-    const last30DaysPaise = parseInt(last30DaysResult || 0, 10);
-    const last90DaysPaise = parseInt(last90DaysResult || 0, 10);
+    const totalDonationRupees = parseFloat(totalDonationResult || 0).toFixed(2);
+    const last30DaysRupees = parseFloat(last30DaysResult || 0).toFixed(2);
+    const last90DaysRupees = parseFloat(last90DaysResult || 0).toFixed(2);
 
     return success(res, {
       totalRegisteredDevotees,
       totalDonateDevotees,
-      totalDonationPaise,
-      totalDonationRupees: (totalDonationPaise / 100).toFixed(2),
-      last30DaysPaise,
-      last30DaysRupees: (last30DaysPaise / 100).toFixed(2),
-      last90DaysPaise,
-      last90DaysRupees: (last90DaysPaise / 100).toFixed(2),
+      totalDonationRupees,
+      last30DaysRupees,
+      last90DaysRupees,
     });
   } catch (err) {
     next(err);
@@ -424,6 +421,12 @@ async function getDevoteeTransactions(req, res, next) {
 
     const transactions = rows.map((d) => {
       const plain = d.get({ plain: true });
+      // Debug log to see available fields
+      console.log('Transaction plain object:', JSON.stringify(plain, null, 2));
+
+      const createdAt = plain.createdAt || plain.created_at;
+      const dateObj = createdAt ? new Date(createdAt) : null;
+
       return {
         id: plain.id,
         amount: plain.amount,
@@ -434,14 +437,50 @@ async function getDevoteeTransactions(req, res, next) {
         devotee: plain.Devotee
           ? { id: plain.Devotee.id, mobile: plain.Devotee.mobile, name: plain.Devotee.name }
           : null,
-        transactionDate: plain.createdAt ? new Date(plain.createdAt).toLocaleDateString() : null,
-        transactionTime: plain.createdAt ? new Date(plain.createdAt).toLocaleTimeString() : null,
-        createdAt: plain.createdAt,
+        transactionDate: dateObj ? dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : null,
+        transactionTime: dateObj ? dateObj.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : null,
+        createdAt: createdAt,
+      };
+    });
+
+    // Top Contributors (Devotees who donated most to this admin)
+    const topContributorsList = await Donation.findAll({
+      where: {
+        adminId,
+        status: 'captured', // Ensure only successful donations are counted
+      },
+      attributes: [
+        'devoteeId',
+        [sequelize.fn('SUM', sequelize.col('amount')), 'totalAmount'],
+      ],
+      include: [
+        {
+          model: Devotee,
+          attributes: ['id', 'name', 'mobile'], // Add profileImage if available in model
+        },
+      ],
+      group: ['devoteeId', 'Devotee.id'],
+      order: [[sequelize.literal('"totalAmount"'), 'DESC']],
+      limit: 5,
+    });
+
+    const topContributors = topContributorsList.map((tc) => {
+      const plain = tc.get({ plain: true });
+      return {
+        devoteeId: plain.devoteeId,
+        totalAmount: plain.totalAmount,
+        totalAmountRupees: plain.totalAmount, // Already in Rupees
+        devotee: plain.Devotee ? {
+          id: plain.Devotee.id,
+          name: plain.Devotee.name,
+          mobile: plain.Devotee.mobile
+        } : null,
       };
     });
 
     return success(res, {
       transactions,
+      topContributors,
       total: count,
       page,
       limit,
