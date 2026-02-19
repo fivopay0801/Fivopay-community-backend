@@ -5,6 +5,7 @@ const router = express.Router();
 const devoteeController = require('../controllers/devoteeController');
 const donationController = require('../controllers/donationController');
 const eventController = require('../controllers/eventController');
+const superAdminController = require('../controllers/superAdminController');
 const { authenticateDevotee } = require('../middleware/auth');
 const { optionalUploadProfileImage } = require('../middleware/upload');
 
@@ -19,6 +20,7 @@ router.put('/details', authenticateDevotee, optionalUploadProfileImage, devoteeC
 
 router.get('/organization-types', devoteeController.getOrganizationTypes);
 router.get('/organizations', devoteeController.getOrganizations);
+router.get('/admins', authenticateDevotee, superAdminController.getAllAdmins);
 
 
 router.get('/favorites', authenticateDevotee, devoteeController.getFavorites);
