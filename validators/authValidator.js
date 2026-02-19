@@ -179,6 +179,8 @@ function validateCreateAdmin(body) {
   if (!orgResult.valid) errors.push(orgResult.message);
   const phoneResult = validatePhone(body.phone, true);
   if (!phoneResult.valid) errors.push(phoneResult.message);
+  const addressResult = validateAddress(body.address, true);
+  if (!addressResult.valid) errors.push(addressResult.message);
 
   let lat = null;
   let long = null;
@@ -202,6 +204,7 @@ function validateCreateAdmin(body) {
       name: nameResult.value,
       organizationType: orgResult.value,
       phone: phoneResult.value,
+      address: addressResult.value,
       latitude: lat,
       longitude: long,
     },
