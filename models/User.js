@@ -59,6 +59,14 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         field: 'created_by_id',
       },
+      latitude: {
+        type: DataTypes.DECIMAL(10, 8),
+        allowNull: true,
+      },
+      longitude: {
+        type: DataTypes.DECIMAL(11, 8),
+        allowNull: true,
+      },
       isActive: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
@@ -122,8 +130,12 @@ module.exports = (sequelize, DataTypes) => {
   };
 
   User.prototype.toSafeObject = function () {
-    const { id, email, name, address, phone, profileImage, role, organizationType, isActive, createdAt } = this.get();
-    return { id, email, name, address, phone, profileImage, role, organizationType, isActive, createdAt };
+    const { id, email, name, address, phone, profileImage, role, organizationType, isActive, createdAt, latitude, longitude } = this.get();
+    return {
+      id, email, name, address, phone, profileImage, role, organizationType, isActive, createdAt,
+      latitude, longitude,
+      googleMapLink: (latitude && longitude) ? `https://www.google.com/maps?q=${latitude},${longitude}` : null
+    };
   };
 
   return User;

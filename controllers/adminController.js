@@ -26,7 +26,7 @@ async function create(req, res, next) {
       return error(res, 'Validation failed', 422, validation.errors);
     }
 
-    const { email, password, name, organizationType, phone } = validation.data;
+    const { email, password, name, organizationType, phone, latitude, longitude } = validation.data;
 
     const existing = await User.findOne({
       where: { email },
@@ -44,6 +44,8 @@ async function create(req, res, next) {
       role: ROLES.ADMIN,
       organizationType,
       createdById: req.user.id,
+      latitude,
+      longitude,
     });
 
     // Hash and set the password before saving to satisfy not-null validation

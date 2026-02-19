@@ -186,14 +186,27 @@ async function getAllAdmins(req, res, next) {
         'name',
         'email',
         'phone',
+        'address',
         'organizationType',
         'isActive',
+        'latitude',
+        'longitude',
         [sequelize.col('created_at'), 'createdAt'],
       ],
       order: [['organizationType', 'ASC'], ['name', 'ASC'], sequelize.literal('"User"."created_at" DESC')],
     });
 
-    return success(res, { admins, total: admins.length });
+    const adminsList = admins.map((admin) => {
+      const plain = admin.get({ plain: true });
+      return {
+        ...plain,
+        googleMapLink: (plain.latitude && plain.longitude)
+          ? `https://www.google.com/maps?q=${plain.latitude},${plain.longitude}`
+          : null,
+      };
+    });
+
+    return success(res, { admins: adminsList, total: adminsList.length });
   } catch (err) {
     next(err);
   }

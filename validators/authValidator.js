@@ -180,6 +180,17 @@ function validateCreateAdmin(body) {
   const phoneResult = validatePhone(body.phone, true);
   if (!phoneResult.valid) errors.push(phoneResult.message);
 
+  let lat = null;
+  let long = null;
+  if (body.latitude !== undefined && body.latitude !== '') {
+    lat = parseFloat(body.latitude);
+    if (isNaN(lat) || lat < -90 || lat > 90) errors.push('Invalid latitude.');
+  }
+  if (body.longitude !== undefined && body.longitude !== '') {
+    long = parseFloat(body.longitude);
+    if (isNaN(long) || long < -180 || long > 180) errors.push('Invalid longitude.');
+  }
+
   if (errors.length > 0) {
     return { valid: false, errors };
   }
@@ -191,6 +202,8 @@ function validateCreateAdmin(body) {
       name: nameResult.value,
       organizationType: orgResult.value,
       phone: phoneResult.value,
+      latitude: lat,
+      longitude: long,
     },
   };
 }
