@@ -17,7 +17,7 @@
     "username": "postgres",
     "password": "Fivopay@123",
     "database": "Fivopay",
-    "host": "35.77.33.79",
+    "host": "13.201.104.53",
     "dialect": "postgres"
   }
-} 
+}
