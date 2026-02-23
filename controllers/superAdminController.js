@@ -213,6 +213,29 @@ async function getAllAdmins(req, res, next) {
 }
 
 /**
+ * DELETE /api/super-admin/admins/:id
+ * Deactivate an admin (for Super Admin only).
+ */
+async function deleteAdmin(req, res, next) {
+  try {
+    const { id } = req.params;
+
+    const admin = await User.findOne({
+      where: { id, role: ROLES.ADMIN },
+    });
+
+    if (!admin) {
+      return error(res, 'Admin not found.', 404);
+    }
+
+    await admin.update({ isActive: false });
+    return success(res, null, 'Admin deactivated successfully.');
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * GET /api/super-admin/devotees
  * Get list of all devotees (for Super Admin only).
  */
@@ -371,6 +394,7 @@ module.exports = {
   updateProfile,
   deleteProfile,
   getAllAdmins,
+  deleteAdmin,
   getAllDevotees,
   getAllSupportTickets,
   updateSupportStatus,
