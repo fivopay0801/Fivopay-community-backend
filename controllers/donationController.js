@@ -262,8 +262,8 @@ function donationToResponse(donation) {
     razorpaySignature: plain.razorpaySignature,
     utr: plain.utr,
     transactionId: plain.transactionId,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
+    createdAt: plain.created_at,
+    updatedAt: plain.updated_at,
   };
 }
 
