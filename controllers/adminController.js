@@ -327,6 +327,95 @@ async function getMyDevotees(req, res, next) {
 }
 
 /**
+ * POST /api/admin/devotees/walkin
+ * Create or update a devotee (walk-in) and record a CASH donation for this admin.
+ * Body: { mobile, name?, email?, city?, amount, eventId?, utr?, transactionId? }
+ */
+async function createWalkInCashDonation(req, res, next) {
+  try {
+    const adminId = req.user.id;
+    const {
+      mobile,
+      name,
+      email,
+      city,
+      amount,
+      eventId,
+      utr,
+      transactionId,
+    } = req.body || {};
+
+    if (!mobile || typeof mobile !== 'string') {
+      return error(res, 'Valid mobile is required.', 422);
+    }
+
+    const numericAmount = parseFloat(amount);
+    if (!numericAmount || Number.isNaN(numericAmount) || numericAmount <= 0) {
+      return error(res, 'Valid positive amount is required.', 422);
+    }
+
+    // Find existing devotee by mobile or create a new one
+    let devotee = await Devotee.findOne({ where: { mobile } });
+
+    if (!devotee) {
+      devotee = await Devotee.create({
+        mobile,
+        name: name || null,
+        email: email || null,
+        city: city || null,
+      });
+    } else {
+      const updates = {};
+      if (typeof name === 'string' && name.trim() && name !== devotee.name) {
+        updates.name = name.trim();
+      }
+      if (typeof email === 'string' && email.trim() && email !== devotee.email) {
+        updates.email = email.trim();
+      }
+      if (typeof city === 'string' && city.trim() && city !== devotee.city) {
+        updates.city = city.trim();
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await devotee.update(updates);
+      }
+    }
+
+    // Ensure this devotee has this admin as a favorite (linked to this organization)
+    await DevoteeFavorite.findOrCreate({
+      where: { devoteeId: devotee.id, adminId },
+      defaults: { displayOrder: 1 },
+    });
+
+    // Record the cash donation as CAPTURED
+    const donation = await Donation.create({
+      devoteeId: devotee.id,
+      adminId,
+      eventId: eventId || null,
+      amount: numericAmount,
+      status: DONATION_STATUS.CAPTURED,
+      utr: utr || null,
+      transactionId: transactionId || null,
+      razorpayOrderId: null,
+      razorpayPaymentId: null,
+      razorpaySignature: null,
+    });
+
+    return success(
+      res,
+      {
+        devotee: devotee.toSafeObject(),
+        donation: donation.get({ plain: true }),
+      },
+      'Walk-in cash donation recorded successfully.',
+      201
+    );
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * GET /api/admin/dashboard
  * Get all community overview stats for the admin/organization in one API.
  * Returns: totalRegisteredDevotees, totalDonateDevotees, totalDonation, last30Days, last90Days.
@@ -507,4 +596,5 @@ module.exports = {
   updateSupportStatus,
   getMyDevotees,
   getDevoteeTransactions,
+  createWalkInCashDonation,
 };

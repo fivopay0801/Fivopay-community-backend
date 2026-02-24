@@ -22,6 +22,8 @@ router.patch('/support/:id', authenticate, requireAdmin, adminController.updateS
 
 router.get('/devotees', authenticate, requireAdmin, adminController.getMyDevotees);
 
+router.post('/devotees/walkin', authenticate, requireAdmin, adminController.createWalkInCashDonation);
+
 router.get('/transactions', authenticate, requireAdmin, adminController.getDevoteeTransactions);
 
 router.get('/event-types', authenticate, requireAdmin, eventController.getEventTypes);
