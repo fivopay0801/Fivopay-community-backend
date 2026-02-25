@@ -124,8 +124,10 @@ async function verifyDonation(req, res, next) {
     let paymentMethod = null;
     try {
       const paymentDetails = await fetchPayment(razorpayPaymentId);
+      console.log('Razorpay Payment Details:', JSON.stringify(paymentDetails, null, 2));
       if (paymentDetails) {
         paymentMethod = paymentDetails.method;
+        console.log('Extracted Payment Method:', paymentMethod);
         if (paymentDetails.acquirer_data) {
           utr = paymentDetails.acquirer_data.rrn || paymentDetails.acquirer_data.upi_transaction_id;
           transactionId = paymentDetails.acquirer_data.bank_transaction_id;
