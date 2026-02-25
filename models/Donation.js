@@ -71,6 +71,12 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: DONATION_STATUS.PENDING,
         field: 'status',
       },
+      paymentMethod: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'payment_method',
+        comment: 'Payment method used (e.g., upi, card, netbanking, wallet, cash)',
+      },
     },
     {
       tableName: 'donations',

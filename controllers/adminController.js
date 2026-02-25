@@ -526,6 +526,7 @@ async function getDevoteeTransactions(req, res, next) {
         status: plain.status,
         razorpayOrderId: plain.razorpayOrderId,
         razorpayPaymentId: plain.razorpayPaymentId,
+        paymentMethod: plain.paymentMethod,
         devotee: plain.Devotee
           ? { id: plain.Devotee.id, mobile: plain.Devotee.mobile, name: plain.Devotee.name }
           : null,

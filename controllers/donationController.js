@@ -21,8 +21,8 @@ async function createDonationOrder(req, res, next) {
     const devotee = req.devotee;
 
     const amountPaise = Math.round(amountRupees * 100);
-    if (amountPaise < 1000) {
-      return error(res, 'Minimum donation is ₹10.', 422);
+    if (amountPaise < 100) {
+      return error(res, 'Minimum donation is ₹1.', 422);
     }
 
     const favorite = await DevoteeFavorite.findOne({
@@ -118,14 +118,18 @@ async function verifyDonation(req, res, next) {
       return error(res, 'Payment verification failed. Invalid signature.', 400);
     }
 
-    // Fetch full payment details to get UTR / Bank Transaction ID
+    // Fetch full payment details to get UTR / Bank Transaction ID / Method
     let utr = null;
     let transactionId = null;
+    let paymentMethod = null;
     try {
       const paymentDetails = await fetchPayment(razorpayPaymentId);
-      if (paymentDetails && paymentDetails.acquirer_data) {
-        utr = paymentDetails.acquirer_data.rrn || paymentDetails.acquirer_data.upi_transaction_id;
-        transactionId = paymentDetails.acquirer_data.bank_transaction_id;
+      if (paymentDetails) {
+        paymentMethod = paymentDetails.method;
+        if (paymentDetails.acquirer_data) {
+          utr = paymentDetails.acquirer_data.rrn || paymentDetails.acquirer_data.upi_transaction_id;
+          transactionId = paymentDetails.acquirer_data.bank_transaction_id;
+        }
       }
       // Fallback: if bank_transaction_id is missing, use razorpayPaymentId as transactionId
       if (!transactionId) {
@@ -141,6 +145,7 @@ async function verifyDonation(req, res, next) {
       razorpaySignature,
       utr,
       transactionId,
+      paymentMethod,
       status: DONATION_STATUS.CAPTURED,
     });
 
@@ -260,6 +265,7 @@ function donationToResponse(donation) {
     razorpayOrderId: plain.razorpayOrderId,
     razorpayPaymentId: plain.razorpayPaymentId,
     razorpaySignature: plain.razorpaySignature,
+    paymentMethod: plain.paymentMethod,
     utr: plain.utr,
     transactionId: plain.transactionId,
     createdAt: plain.created_at,
