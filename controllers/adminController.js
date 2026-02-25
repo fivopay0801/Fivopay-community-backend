@@ -491,10 +491,14 @@ async function getDevoteeTransactions(req, res, next) {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
     const statusFilter = req.query.status;
+    const paymentMethodFilter = req.query.paymentMethod;
 
     const where = { adminId };
     if (statusFilter && ['pending', 'captured', 'failed'].includes(statusFilter)) {
       where.status = statusFilter;
+    }
+    if (paymentMethodFilter) {
+      where.paymentMethod = paymentMethodFilter;
     }
 
     const { count, rows } = await Donation.findAndCountAll({
