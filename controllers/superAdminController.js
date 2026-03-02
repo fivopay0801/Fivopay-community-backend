@@ -183,6 +183,7 @@ async function getAllAdmins(req, res, next) {
       where,
       attributes: [
         'id',
+        'orgId',
         'name',
         'email',
         'phone',
