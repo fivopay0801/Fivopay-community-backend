@@ -100,7 +100,7 @@ async function verifyDonation(req, res, next) {
         razorpayOrderId,
         devoteeId: devotee.id,
       },
-      include: [{ model: User, as: 'organization', attributes: ['id', 'name'] }],
+      include: [{ model: User, as: 'organization', attributes: ['id', 'orgId', 'name'] }],
     });
     if (!donation) {
       return error(res, 'Donation not found.', 404);
@@ -189,7 +189,7 @@ async function getMyDonations(req, res, next) {
         {
           model: User,
           as: 'organization',
-          attributes: ['id', 'name', 'organizationType', 'profileImage'],
+          attributes: ['id', 'orgId', 'name', 'organizationType', 'profileImage'],
         },
         {
           model: Event,

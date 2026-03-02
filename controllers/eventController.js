@@ -188,7 +188,7 @@ async function getOrganizationEvents(req, res, next) {
 
     const admin = await User.findOne({
       where: { id: adminId, role: ROLES.ADMIN, isActive: true },
-      attributes: ['id', 'name', 'organizationType', 'profileImage'],
+      attributes: ['id', 'orgId', 'name', 'organizationType', 'profileImage'],
     });
     if (!admin) {
       return error(res, 'Organization not found.', 404);
@@ -230,7 +230,7 @@ async function getFavoritesEvents(req, res, next) {
         {
           model: User,
           as: 'organization',
-          attributes: ['id', 'name', 'organizationType', 'profileImage'],
+          attributes: ['id', 'orgId', 'name', 'organizationType', 'profileImage'],
         },
       ],
       order: [['displayOrder', 'ASC']],
@@ -248,7 +248,7 @@ async function getFavoritesEvents(req, res, next) {
         {
           model: User,
           as: 'organization',
-          attributes: ['id', 'name', 'organizationType', 'profileImage'],
+          attributes: ['id', 'orgId', 'name', 'organizationType', 'profileImage'],
         },
       ],
       order: sequelize.literal('"Event"."event_date" ASC, "Event"."start_time" ASC NULLS LAST'),

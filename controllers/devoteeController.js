@@ -173,7 +173,7 @@ async function getOrganizations(req, res, next) {
         organizationType,
         isActive: true,
       },
-      attributes: ['id', 'name', 'email', 'phone', 'organizationType', 'profileImage'],
+      attributes: ['id', 'orgId', 'name', 'email', 'phone', 'organizationType', 'profileImage'],
       order: [['name', 'ASC']],
     });
 
@@ -199,7 +199,7 @@ async function getFavorites(req, res, next) {
         {
           model: User,
           as: 'organization',
-          attributes: ['id', 'name', 'email', 'phone', 'organizationType', 'profileImage'],
+          attributes: ['id', 'orgId', 'name', 'email', 'phone', 'organizationType', 'profileImage'],
         },
       ],
       order: [['displayOrder', 'ASC']],
@@ -259,7 +259,7 @@ async function setFavorites(req, res, next) {
         {
           model: User,
           as: 'organization',
-          attributes: ['id', 'name', 'email', 'phone', 'organizationType', 'profileImage'],
+          attributes: ['id', 'orgId', 'name', 'email', 'phone', 'organizationType', 'profileImage'],
         },
       ],
       order: [['displayOrder', 'ASC']],
