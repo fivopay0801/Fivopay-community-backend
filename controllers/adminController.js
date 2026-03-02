@@ -492,6 +492,7 @@ async function getDevoteeTransactions(req, res, next) {
     const offset = (page - 1) * limit;
     const statusFilter = req.query.status;
     const paymentMethodFilter = req.query.paymentMethod;
+    const { startDate, endDate } = req.query;
 
     const where = { adminId };
     if (statusFilter && ['pending', 'captured', 'failed'].includes(statusFilter)) {
@@ -499,6 +500,18 @@ async function getDevoteeTransactions(req, res, next) {
     }
     if (paymentMethodFilter) {
       where.paymentMethod = paymentMethodFilter;
+    }
+
+    if (startDate || endDate) {
+      where.created_at = {};
+      if (startDate) {
+        where.created_at[Op.gte] = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.created_at[Op.lte] = end;
+      }
     }
 
     const { count, rows } = await Donation.findAndCountAll({
