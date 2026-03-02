@@ -73,6 +73,12 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: true,
         field: 'is_active',
       },
+      orgId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        field: 'org_id',
+        defaultValue: sequelize.literal("nextval('org_id_seq')"),
+      },
     },
     {
       tableName: 'users',
@@ -130,9 +136,9 @@ module.exports = (sequelize, DataTypes) => {
   };
 
   User.prototype.toSafeObject = function () {
-    const { id, email, name, address, phone, profileImage, role, organizationType, isActive, createdAt, latitude, longitude } = this.get();
+    const { id, email, name, address, phone, profileImage, role, organizationType, isActive, createdAt, latitude, longitude, orgId } = this.get();
     return {
-      id, email, name, address, phone, profileImage, role, organizationType, isActive, createdAt,
+      id, orgId, email, name, address, phone, profileImage, role, organizationType, isActive, createdAt,
       latitude, longitude,
       googleMapLink: (latitude && longitude) ? `https://www.google.com/maps?q=${latitude},${longitude}` : null
     };
