@@ -169,10 +169,41 @@ async function deleteFileFromS3(url) {
   }
 }
 
+const uploadOnboardingDocsFields = multer({
+  storage: createS3Storage('onboarding/'),
+  fileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for docs
+}).fields([
+  { name: 'registrationCertificate', maxCount: 1 },
+  { name: 'panCard', maxCount: 1 },
+  { name: 'addressProof', maxCount: 1 },
+  { name: 'idProof', maxCount: 1 },
+  { name: 'bankProof', maxCount: 1 },
+]);
+
+const uploadOnboardingDocs = (req, res, next) => {
+  const isMultipart = (req.headers['content-type'] || '').includes('multipart/form-data');
+  if (!isMultipart) return next();
+
+  uploadOnboardingDocsFields(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'Onboarding document upload failed.',
+      });
+    }
+    next();
+  });
+};
+
 module.exports = {
   uploadImage,
   optionalUploadImage,
   optionalUploadEventImage,
   optionalUploadProfileImage,
+  uploadOnboardingDocs,
   deleteFileFromS3,
 };

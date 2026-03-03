@@ -6,6 +6,7 @@ const { sequelize } = require('./models');
 const superAdminRoutes = require('./routes/superAdminRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const devoteeRoutes = require('./routes/devoteeRoutes');
+const formRoutes = require('./routes/formRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -19,6 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/devotee', devoteeRoutes);
+app.use('/api/form', formRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ success: true, message: 'OK' });
