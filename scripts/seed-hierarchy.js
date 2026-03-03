@@ -254,7 +254,54 @@ async function seed() {
         }
     }
 
-    console.log('Seeding completed.');
+    console.log('--- Bulk Updating Existing Admins ---');
+    try {
+        const existingAdmins = await User.findAll({
+            where: {
+                role: ROLES.ADMIN,
+                organizationCategory: null
+            }
+        });
+
+        console.log(`Found ${existingAdmins.length} admins with null hierarchy data.`);
+
+        for (const user of existingAdmins) {
+            const name = user.name.toLowerCase();
+            let cat = ORGANIZATION_CATEGORIES.FAITH;
+            let faith = FAITHS.HINDUISM;
+            let subtype = 'temple';
+
+            if (name.includes('masjid') || name.includes('dargah')) {
+                faith = FAITHS.ISLAM;
+                subtype = name.includes('dargah') ? 'dargah' : 'masjid';
+            } else if (name.includes('church') || name.includes('basilica') || name.includes('cathedral')) {
+                faith = FAITHS.CHRISTIANITY;
+                subtype = 'church';
+            } else if (name.includes('gurudwara') || name.includes('hazur sahib')) {
+                faith = FAITHS.SIKHISM;
+                subtype = 'gurudwara';
+            } else if (name.includes('ashram')) {
+                subtype = 'ashram';
+            } else if (name.includes('gausala') || name.includes('goshala')) {
+                subtype = 'gausala';
+            }
+
+            try {
+                await user.update({
+                    organizationCategory: cat,
+                    faith: faith,
+                    organizationSubtype: subtype
+                });
+                console.log(`Updated hierarchy for: ${user.name} -> ${faith}/${subtype}`);
+            } catch (err) {
+                console.error(`Error updating bulk user ${user.name}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('Bulk update failed:', err.message);
+    }
+
+    console.log('Seeding and bulk updates completed.');
     process.exit(0);
 }
 

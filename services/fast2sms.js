@@ -1,24 +1,28 @@
 const https = require('https');
 
 /**
- * Send an OTP SMS via Fast2SMS.
- * Expects process.env.FAST2SMS_API_KEY to be set.
- * @param {string} phoneNumber - Recipient mobile number(s), comma separated if multiple. Do not include '+'
- * @param {string|number} otpCode - OTP code to send
+ * Send an OTP SMS via Fast2SMS using DLT route.
+ * Expects process.env.FAST2SMS_API_KEY and process.env.FAST2SMS_SENDER_ID to be set.
+ * @param {string} phoneNumber - Recipient mobile number
+ * @param {string} templateId - The DLT Template ID (passed as 'message' field)
+ * @param {string} variablesValues - The variable values (passed as 'variables_values' field, e.g. '1234|')
  * @returns {Promise<{ok: boolean, statusCode: number, body: any}>}
  */
-async function sendOtpSms(phoneNumber, otpCode) {
+async function sendOtpSms(phoneNumber, templateId, variablesValues) {
     return new Promise((resolve) => {
         const apiKey = process.env.FAST2SMS_API_KEY;
+        const senderId = process.env.FAST2SMS_SENDER_ID;
+
         if (!apiKey) {
             console.warn('FAST2SMS_API_KEY is not set. Skipping SMS send.');
             return resolve({ ok: false, statusCode: 0, body: { message: 'API key missing' } });
         }
 
         const payload = JSON.stringify({
-            route: 'otp',
-            variables_values: String(otpCode),
-            schedule_time: '',
+            route: 'dlt',
+            sender_id: senderId || '',
+            message: String(templateId),
+            variables_values: String(variablesValues),
             numbers: String(phoneNumber)
         });
 

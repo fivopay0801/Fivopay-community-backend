@@ -48,8 +48,37 @@ async function sendOtpHandler(req, res, next) {
       devotee = await Devotee.create({ mobile });
     }
 
+    const now = new Date();
+
+    // 1. Check for 60-second resend delay
+    if (devotee.lastOtpSentAt) {
+      const secondsSinceLast = (now - new Date(devotee.lastOtpSentAt)) / 1000;
+      if (secondsSinceLast < 60) {
+        const wait = Math.ceil(60 - secondsSinceLast);
+        return error(res, `Please wait ${wait} seconds before requesting a new OTP.`, 429);
+      }
+    }
+
+    // 2. Check for Hourly Limit (3 per hour)
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+    // Reset window if it started more than 1 hour ago
+    if (!devotee.otpWindowStartAt || new Date(devotee.otpWindowStartAt) < oneHourAgo) {
+      devotee.otpWindowStartAt = now;
+      devotee.otpCount = 0;
+    }
+
+    if (devotee.otpCount >= 3) {
+      return error(res, 'Maximum OTP limit reached (3 per hour). Please try again later.', 429);
+    }
+
     const otp = generateOtp();
     await devotee.setOtp(otp);
+
+    // Update rate limiting fields
+    devotee.lastOtpSentAt = now;
+    devotee.otpCount += 1;
+
     await devotee.save();
 
     await sendOtp(mobile, otp);

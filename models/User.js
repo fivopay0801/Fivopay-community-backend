@@ -87,6 +87,7 @@ module.exports = (sequelize, DataTypes) => {
       faith: {
         type: DataTypes.STRING(50),
         allowNull: true,
+        field: 'faith',
       },
       organizationSubtype: {
         type: DataTypes.STRING(50),

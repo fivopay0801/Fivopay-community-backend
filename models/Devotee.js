@@ -51,6 +51,22 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         field: 'otp_expires_at',
       },
+      lastOtpSentAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'last_otp_sent_at',
+      },
+      otpCount: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        field: 'otp_count',
+      },
+      otpWindowStartAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'otp_window_start_at',
+      },
     },
     {
       tableName: 'devotees',
