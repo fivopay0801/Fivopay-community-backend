@@ -3,6 +3,12 @@
 const { Op } = require('sequelize');
 const { User, Support, Devotee, Donation, sequelize } = require('../models');
 const { ROLES, ORGANIZATION_TYPES_LIST } = require('../constants/roles');
+const {
+  ORGANIZATION_CATEGORIES,
+  ORGANIZATION_CATEGORIES_LIST,
+  FAITHS_LIST,
+  ALL_SUBTYPES_LIST,
+} = require('../constants/organization');
 const { generateToken } = require('../middleware/auth');
 const { success, error } = require('../utils/response');
 const {
@@ -179,6 +185,17 @@ async function getAllAdmins(req, res, next) {
       where.organizationType = organizationType.toLowerCase().trim();
     }
 
+    const { organizationCategory, faith, organizationSubtype } = req.query;
+    if (organizationCategory && ORGANIZATION_CATEGORIES_LIST.includes(organizationCategory.toLowerCase().trim())) {
+      where.organizationCategory = organizationCategory.toLowerCase().trim();
+    }
+    if (faith && FAITHS_LIST.includes(faith.toLowerCase().trim())) {
+      where.faith = faith.toLowerCase().trim();
+    }
+    if (organizationSubtype && ALL_SUBTYPES_LIST.includes(organizationSubtype.toLowerCase().trim())) {
+      where.organizationSubtype = organizationSubtype.toLowerCase().trim();
+    }
+
     const admins = await User.findAll({
       where,
       attributes: [
@@ -189,6 +206,9 @@ async function getAllAdmins(req, res, next) {
         'phone',
         'address',
         'organizationType',
+        'organizationCategory',
+        'faith',
+        'organizationSubtype',
         'isActive',
         'latitude',
         'longitude',
@@ -305,28 +325,53 @@ async function getDashboardStats(req, res, next) {
     // 1. Organization Counts by Type
     const orgCounts = await User.findAll({
       where: { role: ROLES.ADMIN, isActive: true },
-      attributes: ['organizationType', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-      group: ['organizationType'],
+      attributes: [
+        'organizationType',
+        'organizationCategory',
+        'faith',
+        'organizationSubtype',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      group: ['organizationType', 'organizationCategory', 'faith', 'organizationSubtype'],
       raw: true,
     });
 
     const organizations = {
       total: 0,
-      temple: 0,
-      church: 0,
-      masjid: 0,
-      gurudwara: 0,
-      other: 0,
+      byType: {
+        temple: 0,
+        church: 0,
+        masjid: 0,
+        gurudwara: 0,
+        other: 0,
+      },
+      byCategory: {
+        faith: 0,
+        ngo: 0,
+      },
+      byFaith: {},
     };
 
+    FAITHS_LIST.forEach(f => organizations.byFaith[f] = 0);
+
     orgCounts.forEach((org) => {
-      const type = (org.organizationType || 'other').toLowerCase();
       const count = parseInt(org.count, 10);
       organizations.total += count;
-      if (organizations[type] !== undefined) {
-        organizations[type] = count;
+
+      // Legacy type count
+      const type = (org.organizationType || 'other').toLowerCase();
+      if (organizations.byType[type] !== undefined) {
+        organizations.byType[type] += count;
       } else {
-        organizations.other += count;
+        organizations.byType.other += count;
+      }
+
+      // New hierarchy counts
+      if (org.organizationCategory) {
+        organizations.byCategory[org.organizationCategory] = (organizations.byCategory[org.organizationCategory] || 0) + count;
+      }
+      if (org.faith) {
+        organizations.byFaith[org.faith] = (organizations.byFaith[org.faith] || 0) + count;
       }
     });
 

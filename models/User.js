@@ -79,6 +79,20 @@ module.exports = (sequelize, DataTypes) => {
         field: 'org_id',
         defaultValue: sequelize.literal("nextval('org_id_seq')"),
       },
+      organizationCategory: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'organization_category',
+      },
+      faith: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      organizationSubtype: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'organization_subtype',
+      },
     },
     {
       tableName: 'users',
@@ -136,9 +150,15 @@ module.exports = (sequelize, DataTypes) => {
   };
 
   User.prototype.toSafeObject = function () {
-    const { id, email, name, address, phone, profileImage, role, organizationType, isActive, createdAt, latitude, longitude, orgId } = this.get();
+    const {
+      id, orgId, email, name, address, phone, profileImage, role,
+      organizationType, organizationCategory, faith, organizationSubtype,
+      isActive, createdAt, latitude, longitude
+    } = this.get();
     return {
-      id, orgId, email, name, address, phone, profileImage, role, organizationType, isActive, createdAt,
+      id, orgId, email, name, address, phone, profileImage, role,
+      organizationType, organizationCategory, faith, organizationSubtype,
+      isActive, createdAt,
       latitude, longitude,
       googleMapLink: (latitude && longitude) ? `https://www.google.com/maps?q=${latitude},${longitude}` : null
     };

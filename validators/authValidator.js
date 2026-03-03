@@ -2,6 +2,12 @@
 
 const validator = require('validator');
 const { ORGANIZATION_TYPES_LIST } = require('../constants/roles');
+const {
+  ORGANIZATION_CATEGORIES_LIST,
+  FAITHS_LIST,
+  ORGANIZATION_SUBTYPES,
+  ORGANIZATION_CATEGORIES,
+} = require('../constants/organization');
 
 const PASSWORD_MIN_LENGTH = 8;
 const NAME_MAX_LENGTH = 255;
@@ -111,6 +117,48 @@ function validateOrganizationType(organizationType) {
 }
 
 /**
+ * Validate organization hierarchy.
+ */
+function validateOrganizationHierarchy(category, faith, subtype) {
+  if (!category || !ORGANIZATION_CATEGORIES_LIST.includes(category.toLowerCase())) {
+    return { valid: false, message: `Invalid organization category. Must be one of: ${ORGANIZATION_CATEGORIES_LIST.join(', ')}.` };
+  }
+
+  const cat = category.toLowerCase();
+
+  if (cat === ORGANIZATION_CATEGORIES.FAITH) {
+    if (!faith || !FAITHS_LIST.includes(faith.toLowerCase())) {
+      return { valid: false, message: `For faith category, a valid faith is required: ${FAITHS_LIST.join(', ')}.` };
+    }
+    const f = faith.toLowerCase();
+    const allowedSubtypes = ORGANIZATION_SUBTYPES[f] || [];
+    if (!subtype || !allowedSubtypes.includes(subtype.toLowerCase())) {
+      return { valid: false, message: `Invalid subtype for ${f}. Allowed: ${allowedSubtypes.join(', ')}.` };
+    }
+    return {
+      valid: true,
+      data: {
+        organizationCategory: cat,
+        faith: f,
+        organizationSubtype: subtype.toLowerCase()
+      }
+    };
+  } else if (cat === ORGANIZATION_CATEGORIES.NGO) {
+    // For NGO, we might not have faith or subtype yet (coming soon)
+    return {
+      valid: true,
+      data: {
+        organizationCategory: cat,
+        faith: null,
+        organizationSubtype: null
+      }
+    };
+  }
+
+  return { valid: false, message: 'Invalid organization hierarchy.' };
+}
+
+/**
  * Validate super admin registration body: { email, password, name, address, phone }.
  */
 function validateSuperAdminRegister(body) {
@@ -193,6 +241,9 @@ function validateCreateAdmin(body) {
     if (isNaN(long) || long < -180 || long > 180) errors.push('Invalid longitude.');
   }
 
+  const hierarchyResult = validateOrganizationHierarchy(body.organizationCategory, body.faith, body.organizationSubtype);
+  if (!hierarchyResult.valid) errors.push(hierarchyResult.message);
+
   if (errors.length > 0) {
     return { valid: false, errors };
   }
@@ -203,6 +254,9 @@ function validateCreateAdmin(body) {
       password: body.password,
       name: nameResult.value,
       organizationType: orgResult.value,
+      organizationCategory: hierarchyResult.data.organizationCategory,
+      faith: hierarchyResult.data.faith,
+      organizationSubtype: hierarchyResult.data.organizationSubtype,
       phone: phoneResult.value,
       address: addressResult.value,
       latitude: lat,
@@ -239,6 +293,30 @@ function validateProfileUpdate(body) {
     else data.phone = r.value;
   }
 
+  if (body.organizationCategory !== undefined) {
+    // If updating category, we should ideally validate the whole hierarchy if faith/subtype are also provided
+    // or at least validate the category itself
+    if (body.organizationCategory && !ORGANIZATION_CATEGORIES_LIST.includes(body.organizationCategory.toLowerCase())) {
+      errors.push(`Invalid organization category. Must be one of: ${ORGANIZATION_CATEGORIES_LIST.join(', ')}.`);
+    } else {
+      data.organizationCategory = body.organizationCategory ? body.organizationCategory.toLowerCase() : null;
+    }
+  }
+  if (body.faith !== undefined) {
+    if (body.faith && !FAITHS_LIST.includes(body.faith.toLowerCase())) {
+      errors.push(`Invalid faith. Must be one of: ${FAITHS_LIST.join(', ')}.`);
+    } else {
+      data.faith = body.faith ? body.faith.toLowerCase() : null;
+    }
+  }
+  if (body.organizationSubtype !== undefined) {
+    if (body.organizationSubtype && !ALL_SUBTYPES_LIST.includes(body.organizationSubtype.toLowerCase())) {
+      errors.push(`Invalid organization subtype.`);
+    } else {
+      data.organizationSubtype = body.organizationSubtype ? body.organizationSubtype.toLowerCase() : null;
+    }
+  }
+
   if (errors.length > 0) return { valid: false, errors };
   return { valid: true, data };
 }
@@ -253,5 +331,7 @@ module.exports = {
   validateName,
   validateAddress,
   validatePhone,
+  validatePhone,
   validateOrganizationType,
+  validateOrganizationHierarchy,
 };

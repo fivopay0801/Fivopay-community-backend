@@ -3,6 +3,14 @@
 const { User, Devotee, DevoteeFavorite, Support } = require('../models');
 const { ROLES } = require('../constants/roles');
 const { ORGANIZATION_TYPES_LIST } = require('../constants/roles');
+const {
+  ORGANIZATION_CATEGORIES,
+  ORGANIZATION_CATEGORIES_LIST,
+  FAITHS,
+  FAITHS_LIST,
+  ORGANIZATION_SUBTYPES,
+  ALL_SUBTYPES_LIST,
+} = require('../constants/organization');
 const { generateDevoteeToken } = require('../middleware/auth');
 const { success, error } = require('../utils/response');
 const { deleteFileFromS3 } = require('../middleware/upload');
@@ -117,7 +125,7 @@ async function updateDetails(req, res, next) {
       }
       updates.profileImage = req.file.location;
     }
-    console.log("devote",devotee);
+    console.log("devote", devotee);
 
     if (Object.keys(updates).length === 0) {
       return error(res, 'No updates provided.', 400);
@@ -148,8 +156,26 @@ async function getMe(req, res, next) {
  */
 async function getOrganizationTypes(req, res, next) {
   try {
-    const types = ORGANIZATION_TYPES_LIST.map((type) => ({ type, label: type.charAt(0).toUpperCase() + type.slice(1) }));
-    return success(res, { organizationTypes: types });
+    const hierarchy = {
+      categories: ORGANIZATION_CATEGORIES_LIST.map(cat => ({
+        id: cat,
+        label: cat === ORGANIZATION_CATEGORIES.FAITH ? 'Faith' : 'NGO',
+      })),
+      faiths: FAITHS_LIST.map(f => ({
+        id: f,
+        label: f.charAt(0).toUpperCase() + f.slice(1),
+        subtypes: (ORGANIZATION_SUBTYPES[f] || []).map(s => ({
+          id: s,
+          label: s.charAt(0).toUpperCase() + s.slice(1),
+        })),
+      })),
+      // Legacy support for older frontend versions
+      organizationTypes: ORGANIZATION_TYPES_LIST.map((type) => ({
+        type,
+        label: type.charAt(0).toUpperCase() + type.slice(1)
+      })),
+    };
+    return success(res, hierarchy);
   } catch (err) {
     next(err);
   }
@@ -161,24 +187,40 @@ async function getOrganizationTypes(req, res, next) {
  */
 async function getOrganizations(req, res, next) {
   try {
-    const validation = validateOrganizationType(req.query.type);
-    if (!validation.valid) {
-      return error(res, validation.message, 422);
+    const { type, category, faith, subtype } = req.query;
+
+    const where = {
+      role: ROLES.ADMIN,
+      isActive: true,
+    };
+
+    if (category) {
+      where.organizationCategory = category.toLowerCase();
     }
-    const { value: organizationType } = validation;
+    if (faith) {
+      where.faith = faith.toLowerCase();
+    }
+    if (subtype) {
+      where.organizationSubtype = subtype.toLowerCase();
+    }
+
+    // Legacy support for 'type' filter
+    if (type && !category && !faith && !subtype) {
+      where.organizationType = type.toLowerCase();
+    }
 
     const organizations = await User.findAll({
-      where: {
-        role: ROLES.ADMIN,
-        organizationType,
-        isActive: true,
-      },
-      attributes: ['id', 'orgId', 'name', 'email', 'phone', 'organizationType', 'profileImage'],
+      where,
+      attributes: [
+        'id', 'orgId', 'name', 'email', 'phone',
+        'organizationType', 'organizationCategory', 'faith', 'organizationSubtype',
+        'profileImage'
+      ],
       order: [['name', 'ASC']],
     });
 
     return success(res, {
-      organizations: organizations.map((o) => o.get({ plain: true })),
+      organizations: organizations.map((o) => o.toSafeObject()),
       total: organizations.length,
     });
   } catch (err) {
