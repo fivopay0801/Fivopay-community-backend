@@ -355,7 +355,6 @@ async function getSupportTicketWithMessages(req, res, next) {
           model: SupportMessage,
           as: 'messages',
           required: false,
-          order: [['created_at', 'ASC']],
         },
       ],
       order: [

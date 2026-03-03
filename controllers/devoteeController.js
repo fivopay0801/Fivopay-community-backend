@@ -407,10 +407,13 @@ async function getSupportTicketWithMessages(req, res, next) {
         {
           model: SupportMessage,
           as: 'messages',
-          order: [['created_at', 'ASC']],
+          required: false,
         },
       ],
-      order: [['created_at', 'DESC']],
+      order: [
+        ['created_at', 'DESC'],
+        [{ model: SupportMessage, as: 'messages' }, 'created_at', 'ASC'],
+      ],
     });
 
     if (!ticket) {

@@ -241,7 +241,7 @@ async function getMySupportTickets(req, res, next) {
           required: false,
         },
       ],
-      order: sequelize.literal('"Support"."created_at" DESC'),
+      order: [['created_at', 'DESC']],
     });
     const list = tickets.map((t) => {
       const plain = t.get({ plain: true });
@@ -316,7 +316,6 @@ async function getSupportTicketWithMessages(req, res, next) {
           model: SupportMessage,
           as: 'messages',
           required: false,
-          order: [['created_at', 'ASC']],
         },
       ],
       order: [
