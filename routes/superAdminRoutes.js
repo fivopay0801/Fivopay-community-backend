@@ -20,6 +20,8 @@ router.get('/devotees', authenticate, requireSuperAdmin, superAdminController.ge
 
 router.get('/support', authenticate, requireSuperAdmin, superAdminController.getAllSupportTickets);
 router.patch('/support/:id', authenticate, requireSuperAdmin, superAdminController.updateSupportStatus);
+router.get('/support/:id', authenticate, requireSuperAdmin, superAdminController.getSupportTicketWithMessages);
+router.post('/support/:id/message', authenticate, requireSuperAdmin, superAdminController.addSupportMessageAsSuperAdmin);
 
 router.get('/stats', authenticate, requireSuperAdmin, superAdminController.getDashboardStats);
 

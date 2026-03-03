@@ -2,6 +2,7 @@
 
 const SUPPORT_STATUS = Object.freeze({
   PENDING: 'pending',
+  IN_PROGRESS: 'in_progress',
   RESOLVED: 'resolved',
 });
 
@@ -11,3 +12,4 @@ module.exports = {
   SUPPORT_STATUS,
   SUPPORT_STATUS_LIST,
 };
+

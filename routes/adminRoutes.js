@@ -19,6 +19,8 @@ router.delete('/profile', authenticate, requireAdmin, adminController.deleteProf
 router.post('/support', authenticate, requireAdmin, adminController.raiseSupport);
 router.get('/support', authenticate, requireAdmin, adminController.getMySupportTickets);
 router.patch('/support/:id', authenticate, requireAdmin, adminController.updateSupportStatus);
+router.get('/support/:id', authenticate, requireAdmin, adminController.getSupportTicketWithMessages);
+router.post('/support/:id/message', authenticate, requireAdmin, adminController.addSupportMessageAsAdmin);
 
 router.get('/devotees', authenticate, requireAdmin, adminController.getMyDevotees);
 

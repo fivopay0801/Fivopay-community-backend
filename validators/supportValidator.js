@@ -1,6 +1,7 @@
 'use strict';
 
 const REASON_MAX_LENGTH = 2000;
+const MESSAGE_MAX_LENGTH = 4000;
 
 function validateRaiseSupport(body) {
   const reason =
@@ -40,7 +41,23 @@ function validateDevoteeRaiseSupport(body) {
   };
 }
 
+function validateSupportMessage(body) {
+  const message =
+    body.message !== undefined && body.message !== null ? String(body.message).trim() : '';
+  if (!message.length) {
+    return { valid: false, errors: ['Message is required.'] };
+  }
+  if (message.length > MESSAGE_MAX_LENGTH) {
+    return {
+      valid: false,
+      errors: [`Message must be at most ${MESSAGE_MAX_LENGTH} characters.`],
+    };
+  }
+  return { valid: true, data: { message } };
+}
+
 module.exports = {
   validateRaiseSupport,
   validateDevoteeRaiseSupport,
+  validateSupportMessage,
 };

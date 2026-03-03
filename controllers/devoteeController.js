@@ -1,6 +1,7 @@
 'use strict';
 
-const { User, Devotee, DevoteeFavorite, Support } = require('../models');
+const { Op } = require('sequelize');
+const { User, Devotee, DevoteeFavorite, Support, SupportMessage } = require('../models');
 const { ROLES } = require('../constants/roles');
 const { ORGANIZATION_TYPES_LIST } = require('../constants/roles');
 const {
@@ -22,7 +23,10 @@ const {
   validateSetFavorites,
   validateOrganizationType,
 } = require('../validators/devoteeValidator');
-const { validateDevoteeRaiseSupport } = require('../validators/supportValidator');
+const {
+  validateDevoteeRaiseSupport,
+  validateSupportMessage,
+} = require('../validators/supportValidator');
 
 const MAX_FAVORITES = 5;
 
@@ -374,6 +378,120 @@ async function raiseSupport(req, res, next) {
   }
 }
 
+/**
+ * GET /api/devotee/support
+ * List support tickets raised by the current devotee (without messages).
+ */
+async function getMySupportTickets(req, res, next) {
+  try {
+    const tickets = await Support.findAll({
+      where: { devoteeId: req.devotee.id },
+      order: [['created_at', 'DESC']],
+    });
+    return success(res, { tickets, total: tickets.length });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/devotee/support/:id
+ * Get a single support ticket with its messages (ownership enforced).
+ */
+async function getSupportTicketWithMessages(req, res, next) {
+  try {
+    const { id } = req.params;
+    const ticket = await Support.findOne({
+      where: { id, devoteeId: req.devotee.id },
+      include: [
+        {
+          model: SupportMessage,
+          as: 'messages',
+          order: [['created_at', 'ASC']],
+        },
+      ],
+      order: [['created_at', 'DESC']],
+    });
+
+    if (!ticket) {
+      return error(res, 'Support ticket not found.', 404);
+    }
+
+    // Mark all messages from the other side as read when devotee views the conversation.
+    await SupportMessage.update(
+      { isRead: true },
+      {
+        where: {
+          supportId: ticket.id,
+          isRead: false,
+          senderRole: { [Op.ne]: 'DEVOTEE' },
+        },
+      }
+    );
+
+    const plain = ticket.get({ plain: true });
+    return success(res, { ticket: plain });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/devotee/support/:id/message
+ * Add a reply message on a devotee-owned ticket and optionally reopen it.
+ */
+async function addSupportMessageAsDevotee(req, res, next) {
+  try {
+    const { id } = req.params;
+    const validation = validateSupportMessage(req.body);
+    if (!validation.valid) {
+      return error(res, 'Validation failed', 422, validation.errors);
+    }
+    const { message } = validation.data;
+
+    const ticket = await Support.findOne({
+      where: { id, devoteeId: req.devotee.id },
+    });
+
+    if (!ticket) {
+      return error(res, 'Support ticket not found.', 404);
+    }
+
+    const createdMessage = await SupportMessage.create({
+      supportId: ticket.id,
+      senderRole: 'DEVOTEE',
+      senderId: req.devotee.id,
+      message,
+    });
+
+    // When replying, mark existing messages from the other side as read as they have been seen.
+    await SupportMessage.update(
+      { isRead: true },
+      {
+        where: {
+          supportId: ticket.id,
+          isRead: false,
+          senderRole: { [Op.ne]: 'DEVOTEE' },
+        },
+      }
+    );
+
+    // If ticket was resolved, move to in_progress on new devotee reply.
+    if (ticket.status === 'resolved') {
+      await ticket.update({ status: 'in_progress' });
+    }
+
+    return success(
+      res,
+      { message: createdMessage.get({ plain: true }) },
+      'Message added to support ticket.',
+      201
+    );
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   sendOtpHandler,
   verifyOtp,
@@ -385,4 +503,7 @@ module.exports = {
   setFavorites,
   updateFavorites,
   raiseSupport,
+  getMySupportTickets,
+  getSupportTicketWithMessages,
+  addSupportMessageAsDevotee,
 };

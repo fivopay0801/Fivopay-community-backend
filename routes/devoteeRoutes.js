@@ -37,5 +37,8 @@ router.get('/donations', authenticateDevotee, donationController.getMyDonations)
 router.get('/stats', authenticateDevotee, donationController.getStats);
 
 router.post('/support', authenticateDevotee, devoteeController.raiseSupport);
+router.get('/support', authenticateDevotee, devoteeController.getMySupportTickets);
+router.get('/support/:id', authenticateDevotee, devoteeController.getSupportTicketWithMessages);
+router.post('/support/:id/message', authenticateDevotee, devoteeController.addSupportMessageAsDevotee);
 
 module.exports = router;
