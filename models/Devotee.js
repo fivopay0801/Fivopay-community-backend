@@ -111,8 +111,8 @@ module.exports = (sequelize, DataTypes) => {
   };
 
   Devotee.prototype.toSafeObject = function () {
-    const { id, mobile, name, email, city, profileImage, createdAt } = this.get();
-    return { id, mobile, name, email, city, profileImage, createdAt };
+    const { id, mobile, name, email, city, profileImage, createdAt, updatedAt } = this.get();
+    return { id, mobile, name, email, city, profileImage, createdAt, updatedAt };
   };
 
   return Devotee;

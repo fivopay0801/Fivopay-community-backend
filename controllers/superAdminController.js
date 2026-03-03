@@ -205,6 +205,8 @@ async function getAllAdmins(req, res, next) {
         'email',
         'phone',
         'address',
+        'profileImage',
+        'role',
         'organizationType',
         'organizationCategory',
         'faith',
@@ -213,6 +215,7 @@ async function getAllAdmins(req, res, next) {
         'latitude',
         'longitude',
         [sequelize.col('created_at'), 'createdAt'],
+        [sequelize.col('updated_at'), 'updatedAt'],
       ],
       order: [['organizationType', 'ASC'], ['name', 'ASC'], sequelize.literal('"User"."created_at" DESC')],
     });
@@ -263,11 +266,12 @@ async function deleteAdmin(req, res, next) {
 async function getAllDevotees(req, res, next) {
   try {
     const devotees = await Devotee.findAll({
-      attributes: ['id', 'mobile', 'name', [sequelize.col('created_at'), 'createdAt']],
-      order: sequelize.literal('"Devotee"."created_at" DESC'),
+      order: [['created_at', 'DESC']],
     });
 
-    return success(res, { devotees, total: devotees.length });
+    const list = devotees.map(d => d.toSafeObject());
+
+    return success(res, { devotees: list, total: list.length });
   } catch (err) {
     next(err);
   }
