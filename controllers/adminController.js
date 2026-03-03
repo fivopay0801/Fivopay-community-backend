@@ -1,7 +1,7 @@
 'use strict';
 
 const { Op } = require('sequelize');
-const { User, Support, Donation, Devotee, DevoteeFavorite, sequelize } = require('../models');
+const { User, Support, SupportMessage, Donation, Devotee, DevoteeFavorite, sequelize } = require('../models');
 const { ROLES } = require('../constants/roles');
 const { DONATION_STATUS } = require('../constants/donation');
 const { SUPPORT_STATUS_LIST } = require('../constants/support');
@@ -12,7 +12,7 @@ const {
   validateCreateAdmin,
   validateProfileUpdate,
 } = require('../validators/authValidator');
-const { validateRaiseSupport } = require('../validators/supportValidator');
+const { validateRaiseSupport, validateSupportMessage } = require('../validators/supportValidator');
 const { deleteFileFromS3 } = require('../middleware/upload');
 
 /**
@@ -228,15 +228,29 @@ async function getMySupportTickets(req, res, next) {
           attributes: ['id', 'mobile', 'name'],
           required: false,
         },
+        {
+          model: SupportMessage,
+          as: 'messages',
+          required: false,
+        },
       ],
       order: sequelize.literal('"Support"."created_at" DESC'),
     });
     const list = tickets.map((t) => {
       const plain = t.get({ plain: true });
+      const messages = plain.messages || [];
+      const lastMessage = messages.length ? messages[messages.length - 1] : null;
+      const unreadCount = messages.filter((m) => !m.isRead).length;
+
       return {
         ...plain,
         raisedBy: plain.devoteeId ? 'devotee' : 'admin',
-        devotee: plain.devotee ? { id: plain.devotee.id, mobile: plain.devotee.mobile, name: plain.devotee.name } : null,
+        devotee: plain.devotee
+          ? { id: plain.devotee.id, mobile: plain.devotee.mobile, name: plain.devotee.name }
+          : null,
+        lastMessagePreview: lastMessage ? String(lastMessage.message).slice(0, 200) : null,
+        lastMessageAt: lastMessage ? lastMessage.created_at || lastMessage.createdAt : null,
+        unreadCount,
       };
     });
     return success(res, { tickets: list, total: list.length });
@@ -256,7 +270,7 @@ async function updateSupportStatus(req, res, next) {
     const adminId = req.user.id;
 
     if (!status || !SUPPORT_STATUS_LIST.includes(status)) {
-      return error(res, 'Valid status required: pending or resolved.', 422);
+      return error(res, 'Valid status required: pending, in_progress, or resolved.', 422);
     }
 
     const ticket = await Support.findOne({
@@ -268,6 +282,117 @@ async function updateSupportStatus(req, res, next) {
 
     await ticket.update({ status });
     return success(res, { ticket: ticket.get({ plain: true }) }, 'Support ticket updated successfully.');
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/admin/support/:id
+ * Get single support ticket with messages for this admin.
+ */
+async function getSupportTicketWithMessages(req, res, next) {
+  try {
+    const { id } = req.params;
+    const adminId = req.user.id;
+
+    const ticket = await Support.findOne({
+      where: { id, adminId },
+      include: [
+        {
+          model: Devotee,
+          as: 'devotee',
+          attributes: ['id', 'mobile', 'name'],
+          required: false,
+        },
+        {
+          model: SupportMessage,
+          as: 'messages',
+          required: false,
+          order: [['created_at', 'ASC']],
+        },
+      ],
+      order: [
+        ['created_at', 'DESC'],
+        [{ model: SupportMessage, as: 'messages' }, 'created_at', 'ASC'],
+      ],
+    });
+
+    if (!ticket) {
+      return error(res, 'Support ticket not found.', 404);
+    }
+
+    // Mark all messages from the other side as read when admin views the conversation.
+    await SupportMessage.update(
+      { isRead: true },
+      {
+        where: {
+          supportId: ticket.id,
+          isRead: false,
+          senderRole: { [Op.ne]: 'ADMIN' },
+        },
+      }
+    );
+
+    const plain = ticket.get({ plain: true });
+    return success(res, { ticket: plain });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/admin/support/:id/message
+ * Admin replies to a support ticket belonging to this admin.
+ */
+async function addSupportMessageAsAdmin(req, res, next) {
+  try {
+    const { id } = req.params;
+    const adminId = req.user.id;
+
+    const validation = validateSupportMessage(req.body);
+    if (!validation.valid) {
+      return error(res, 'Validation failed', 422, validation.errors);
+    }
+    const { message } = validation.data;
+
+    const ticket = await Support.findOne({
+      where: { id, adminId },
+    });
+    if (!ticket) {
+      return error(res, 'Support ticket not found.', 404);
+    }
+
+    const createdMessage = await SupportMessage.create({
+      supportId: ticket.id,
+      senderRole: 'ADMIN',
+      senderId: adminId,
+      message,
+    });
+
+    // When replying, mark existing messages from the other side as read as they have been seen.
+    await SupportMessage.update(
+      { isRead: true },
+      {
+        where: {
+          supportId: ticket.id,
+          isRead: false,
+          senderRole: { [Op.ne]: 'ADMIN' },
+        },
+      }
+    );
+
+    // Move to in_progress if currently pending
+    if (ticket.status === 'pending') {
+      await ticket.update({ status: 'in_progress' });
+    }
+
+    return success(
+      res,
+      { message: createdMessage.get({ plain: true }) },
+      'Message added to support ticket.',
+      201
+    );
   } catch (err) {
     next(err);
   }
@@ -615,4 +740,6 @@ module.exports = {
   getMyDevotees,
   getDevoteeTransactions,
   createWalkInCashDonation,
+  getSupportTicketWithMessages,
+  addSupportMessageAsAdmin,
 };

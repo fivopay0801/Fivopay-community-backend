@@ -1,7 +1,7 @@
 'use strict';
 
 const { Op } = require('sequelize');
-const { User, Support, Devotee, Donation, sequelize } = require('../models');
+const { User, Support, SupportMessage, Devotee, Donation, sequelize } = require('../models');
 const { ROLES, ORGANIZATION_TYPES_LIST } = require('../constants/roles');
 const { generateToken } = require('../middleware/auth');
 const { success, error } = require('../utils/response');
@@ -260,10 +260,34 @@ async function getAllDevotees(req, res, next) {
 async function getAllSupportTickets(req, res, next) {
   try {
     const tickets = await Support.findAll({
-      order: sequelize.literal('"Support"."created_at" DESC'),
+      include: [
+        {
+          model: SupportMessage,
+          as: 'messages',
+          required: false,
+        },
+      ],
+      order: [
+        ['created_at', 'DESC'],
+        [{ model: SupportMessage, as: 'messages' }, 'created_at', 'ASC'],
+      ],
     });
 
-    return success(res, { tickets, total: tickets.length });
+    const list = tickets.map((t) => {
+      const plain = t.get({ plain: true });
+      const messages = plain.messages || [];
+      const lastMessage = messages.length ? messages[messages.length - 1] : null;
+      const unreadCount = messages.filter((m) => !m.isRead).length;
+
+      return {
+        ...plain,
+        lastMessagePreview: lastMessage ? String(lastMessage.message).slice(0, 200) : null,
+        lastMessageAt: lastMessage ? lastMessage.created_at || lastMessage.createdAt : null,
+        unreadCount,
+      };
+    });
+
+    return success(res, { tickets: list, total: list.length });
   } catch (err) {
     next(err);
   }
@@ -281,7 +305,7 @@ async function updateSupportStatus(req, res, next) {
     const { status } = req.body;
 
     if (!status || !SUPPORT_STATUS_LIST.includes(status)) {
-      return error(res, 'Valid status required: pending or resolved.', 422);
+      return error(res, 'Valid status required: pending, in_progress, or resolved.', 422);
     }
 
     const ticket = await Support.findByPk(id);
@@ -291,6 +315,108 @@ async function updateSupportStatus(req, res, next) {
 
     await ticket.update({ status });
     return success(res, { ticket }, 'Support ticket updated successfully.');
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/super-admin/support/:id
+ * Get a single support ticket with messages (no ownership restriction).
+ */
+async function getSupportTicketWithMessages(req, res, next) {
+  try {
+    const { id } = req.params;
+
+    const ticket = await Support.findOne({
+      where: { id },
+      include: [
+        {
+          model: SupportMessage,
+          as: 'messages',
+          required: false,
+          order: [['created_at', 'ASC']],
+        },
+      ],
+      order: [
+        ['created_at', 'DESC'],
+        [{ model: SupportMessage, as: 'messages' }, 'created_at', 'ASC'],
+      ],
+    });
+
+    if (!ticket) {
+      return error(res, 'Support ticket not found.', 404);
+    }
+
+    // Mark all messages from the other side as read when super admin views the conversation.
+    await SupportMessage.update(
+      { isRead: true },
+      {
+        where: {
+          supportId: ticket.id,
+          isRead: false,
+          senderRole: { [Op.ne]: 'SUPER_ADMIN' },
+        },
+      }
+    );
+
+    const plain = ticket.get({ plain: true });
+    return success(res, { ticket: plain });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/super-admin/support/:id/message
+ * Super admin replies to any support ticket.
+ */
+async function addSupportMessageAsSuperAdmin(req, res, next) {
+  try {
+    const { validateSupportMessage } = require('../validators/supportValidator');
+    const { id } = req.params;
+
+    const validation = validateSupportMessage(req.body);
+    if (!validation.valid) {
+      return error(res, 'Validation failed', 422, validation.errors);
+    }
+    const { message } = validation.data;
+
+    const ticket = await Support.findByPk(id);
+    if (!ticket) {
+      return error(res, 'Support ticket not found.', 404);
+    }
+
+    const createdMessage = await SupportMessage.create({
+      supportId: ticket.id,
+      senderRole: 'SUPER_ADMIN',
+      senderId: req.user.id,
+      message,
+    });
+
+    // When super admin responds, mark ticket as in_progress unless already resolved.
+    if (ticket.status === 'pending') {
+      await ticket.update({ status: 'in_progress' });
+    }
+
+    // When replying, mark existing messages from the other side as read as they have been seen.
+    await SupportMessage.update(
+      { isRead: true },
+      {
+        where: {
+          supportId: ticket.id,
+          isRead: false,
+          senderRole: { [Op.ne]: 'SUPER_ADMIN' },
+        },
+      }
+    );
+
+    return success(
+      res,
+      { message: createdMessage.get({ plain: true }) },
+      'Message added to support ticket.',
+      201
+    );
   } catch (err) {
     next(err);
   }
@@ -400,4 +526,6 @@ module.exports = {
   getAllSupportTickets,
   updateSupportStatus,
   getDashboardStats,
+  getSupportTicketWithMessages,
+  addSupportMessageAsSuperAdmin,
 };

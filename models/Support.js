@@ -61,6 +61,10 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'devoteeId',
       as: 'devotee',
     });
+    Support.hasMany(models.SupportMessage, {
+      foreignKey: 'supportId',
+      as: 'messages',
+    });
   };
 
   return Support;
