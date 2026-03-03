@@ -1,12 +1,13 @@
 const { sendOtpSms } = require('./fast2sms');
 
 /**
- * Generate a 4-digit OTP.
+ * Generate a 4-digit OTP. 
+ * Currently returns '0000' for testing to avoid SMS charges.
  * @returns {string} 4-digit OTP
  */
 function generateOtp() {
-  const otp = Math.floor(1000 + Math.random() * 9000);
-  return String(otp);
+  // return String(Math.floor(1000 + Math.random() * 9000));
+  return '0000';
 }
 
 /**
@@ -16,6 +17,14 @@ function generateOtp() {
  * @returns {Promise<boolean>} true if sent successfully
  */
 async function sendOtp(mobile, otp) {
+  // If we are using static OTP (0000), we skip real SMS sending to avoid charges.
+  const useStaticOtp = process.env.USE_STATIC_OTP !== 'false'; // Defaults to true as requested
+
+  if (useStaticOtp || otp === '0000') {
+    console.log(`[OTP DEBUG] Static OTP enabled. Skipping real SMS for ${mobile}. OTP: ${otp}`);
+    return true;
+  }
+
   // If FAST2SMS_API_KEY is not set, we cannot send the SMS.
   if (!process.env.FAST2SMS_API_KEY) {
     if (process.env.NODE_ENV === 'development') {
@@ -28,8 +37,7 @@ async function sendOtp(mobile, otp) {
 
   // For DLT route, Template ID is passed in the "message" field, 
   // and the variable values are passed in "variables_values" (e.g. "1234|").
-  // If FAST2SMS_TEMPLATE_ID is not set, we use a fallback (might fail if DLT is strict).
-  const templateId = process.env.FAST2SMS_TEMPLATE_ID || '210471'; // Fallback to a known ID or placeholder
+  const templateId = process.env.FAST2SMS_TEMPLATE_ID || '210471';
   const variablesValues = `${otp}|`;
 
   const result = await sendOtpSms(mobile, templateId, variablesValues);
