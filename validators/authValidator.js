@@ -8,6 +8,7 @@ const {
   ORGANIZATION_SUBTYPES,
   ORGANIZATION_CATEGORIES,
   ALL_SUBTYPES_LIST,
+  NGO_SUBTYPES_LIST,
 } = require('../constants/organization');
 
 const PASSWORD_MIN_LENGTH = 8;
@@ -145,13 +146,15 @@ function validateOrganizationHierarchy(category, faith, subtype) {
       }
     };
   } else if (cat === ORGANIZATION_CATEGORIES.NGO) {
-    // For NGO, we might not have faith or subtype yet (coming soon)
+    if (!subtype || !NGO_SUBTYPES_LIST.includes(subtype.toLowerCase())) {
+      return { valid: false, message: `For NGO category, a valid subtype is required: ${NGO_SUBTYPES_LIST.join(', ')}.` };
+    }
     return {
       valid: true,
       data: {
         organizationCategory: cat,
         faith: null,
-        organizationSubtype: null
+        organizationSubtype: subtype.toLowerCase()
       }
     };
   }

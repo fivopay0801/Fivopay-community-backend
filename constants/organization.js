@@ -35,9 +35,17 @@ const ORGANIZATION_SUBTYPES = Object.freeze({
 });
 
 /**
+ * NGO Subtypes.
+ */
+const NGO_SUBTYPES_LIST = ['welfare', 'animals', 'medical', 'education', 'environment', 'human rights', 'disaster relief', 'women empowerment', 'child welfare', 'elderly care', 'youth development', 'community development', 'arts and culture', 'sports', 'research and development', 'advocacy', 'legal aid', 'health and wellness', 'food security', 'housing', 'water and sanitation', 'energy', 'technology', 'agriculture', 'fisheries', 'forestry', 'mining', 'manufacturing', 'services', 'other'];
+
+/**
  * Get all possible subtypes as a flat list.
  */
-const ALL_SUBTYPES_LIST = Object.values(ORGANIZATION_SUBTYPES).flat();
+const ALL_SUBTYPES_LIST = [
+    ...Object.values(ORGANIZATION_SUBTYPES).flat(),
+    ...NGO_SUBTYPES_LIST,
+];
 
 module.exports = {
     ORGANIZATION_CATEGORIES,
@@ -45,5 +53,6 @@ module.exports = {
     FAITHS,
     FAITHS_LIST,
     ORGANIZATION_SUBTYPES,
+    NGO_SUBTYPES_LIST,
     ALL_SUBTYPES_LIST,
 };
