@@ -11,6 +11,7 @@ const {
   validateLogin,
   validateCreateAdmin,
   validateProfileUpdate,
+  validateAdminUpdateBySuperAdmin,
 } = require('../validators/authValidator');
 const { validateRaiseSupport, validateSupportMessage } = require('../validators/supportValidator');
 const { deleteFileFromS3 } = require('../middleware/upload');
