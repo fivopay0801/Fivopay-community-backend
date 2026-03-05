@@ -18,6 +18,7 @@ const FAITHS = Object.freeze({
     ISLAM: 'islam',
     CHRISTIANITY: 'christianity',
     SIKHISM: 'sikhism',
+    BUDDHISM: 'buddhism',
     OTHER: 'other',
 });
 
@@ -31,6 +32,7 @@ const ORGANIZATION_SUBTYPES = Object.freeze({
     [FAITHS.ISLAM]: ['dargah', 'masjid', 'madrasa', 'khanqah', 'yateem khana'],
     [FAITHS.CHRISTIANITY]: ['church', 'shrine', 'monastery', 'mission orphanage', 'seminary'],
     [FAITHS.SIKHISM]: ['gurudwara', 'gurmat school', 'taksal', 'samadhi institution', 'community care homes'],
+    [FAITHS.BUDDHISM]: ['temple', 'monastery', 'stupa', 'vihara', 'shrine'],
     [FAITHS.OTHER]: ['other'],
 });
 
