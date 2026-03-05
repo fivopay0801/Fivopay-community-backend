@@ -9,10 +9,10 @@ module.exports = {
     if (!tableExists) {
       await queryInterface.createTable('support_messages', {
         id: {
-          type: Sequelize.UUID,
+          type: Sequelize.INTEGER,
           allowNull: false,
           primaryKey: true,
-          defaultValue: Sequelize.literal('gen_random_uuid()'),
+          autoIncrement: true,
         },
         support_id: {
           type: Sequelize.INTEGER,

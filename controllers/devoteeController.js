@@ -274,7 +274,7 @@ async function getFavorites(req, res, next) {
         {
           model: User,
           as: 'organization',
-          attributes: ['id', 'orgId', 'name', 'email', 'phone', 'organizationType', 'profileImage'],
+          attributes: ['id', 'orgId', 'name', 'email', 'phone', 'organizationType', 'organizationCategory', 'faith', 'organizationSubtype', 'profileImage'],
         },
       ],
       order: [['displayOrder', 'ASC']],
@@ -334,7 +334,7 @@ async function setFavorites(req, res, next) {
         {
           model: User,
           as: 'organization',
-          attributes: ['id', 'orgId', 'name', 'email', 'phone', 'organizationType', 'profileImage'],
+          attributes: ['id', 'orgId', 'name', 'email', 'phone', 'organizationType', 'organizationCategory', 'faith', 'organizationSubtype', 'profileImage'],
         },
       ],
       order: [['displayOrder', 'ASC']],
