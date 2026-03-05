@@ -27,10 +27,10 @@ const FAITHS_LIST = Object.values(FAITHS);
  * Organization Subtypes grouped by Faith.
  */
 const ORGANIZATION_SUBTYPES = Object.freeze({
-    [FAITHS.HINDUISM]: ['temple', 'ashram', 'gurukul', 'dharmsala', 'gausala'],
-    [FAITHS.ISLAM]: ['dargah', 'masjid', 'madrasa'],
-    [FAITHS.CHRISTIANITY]: ['church', 'convent', 'seminary'],
-    [FAITHS.SIKHISM]: ['gurudwara'],
+    [FAITHS.HINDUISM]: ['temple', 'ashram', 'gurukul', 'dharmsala', 'samadhi shrine'],
+    [FAITHS.ISLAM]: ['dargah', 'masjid', 'madrasa', 'khanqah', 'yateem khana'],
+    [FAITHS.CHRISTIANITY]: ['church', 'shrine', 'monastery', 'mission orphanage', 'seminary'],
+    [FAITHS.SIKHISM]: ['gurudwara', 'gurmat school', 'taksal', 'samadhi institution', 'community care homes'],
     [FAITHS.OTHER]: ['other'],
 });
 

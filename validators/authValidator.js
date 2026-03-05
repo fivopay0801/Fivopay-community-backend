@@ -7,6 +7,7 @@ const {
   FAITHS_LIST,
   ORGANIZATION_SUBTYPES,
   ORGANIZATION_CATEGORIES,
+  ALL_SUBTYPES_LIST,
 } = require('../constants/organization');
 
 const PASSWORD_MIN_LENGTH = 8;
