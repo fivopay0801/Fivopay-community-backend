@@ -294,8 +294,84 @@ function validateProfileUpdate(body) {
   }
 
   if (body.organizationCategory !== undefined) {
-    // If updating category, we should ideally validate the whole hierarchy if faith/subtype are also provided
-    // or at least validate the category itself
+    if (body.organizationCategory && !ORGANIZATION_CATEGORIES_LIST.includes(body.organizationCategory.toLowerCase())) {
+      errors.push(`Invalid organization category. Must be one of: ${ORGANIZATION_CATEGORIES_LIST.join(', ')}.`);
+    } else {
+      data.organizationCategory = body.organizationCategory ? body.organizationCategory.toLowerCase() : null;
+    }
+  }
+  if (body.faith !== undefined) {
+    if (body.faith && !FAITHS_LIST.includes(body.faith.toLowerCase())) {
+      errors.push(`Invalid faith. Must be one of: ${FAITHS_LIST.join(', ')}.`);
+    } else {
+      data.faith = body.faith ? body.faith.toLowerCase() : null;
+    }
+  }
+  if (body.organizationSubtype !== undefined) {
+    if (body.organizationSubtype && !ALL_SUBTYPES_LIST.includes(body.organizationSubtype.toLowerCase())) {
+      errors.push(`Invalid organization subtype.`);
+    } else {
+      data.organizationSubtype = body.organizationSubtype ? body.organizationSubtype.toLowerCase() : null;
+    }
+  }
+
+  if (errors.length > 0) return { valid: false, errors };
+  return { valid: true, data };
+}
+
+/**
+ * Validate admin update by super admin (more fields than regular profile update).
+ */
+function validateAdminUpdateBySuperAdmin(body) {
+  const errors = [];
+  const data = {};
+
+  if (body.name !== undefined && body.name !== null && body.name !== '') {
+    const r = validateName(body.name);
+    if (!r.valid) errors.push(r.message);
+    else data.name = r.value;
+  }
+  if (body.email !== undefined && body.email !== null && body.email !== '') {
+    const r = validateEmail(body.email);
+    if (!r.valid) errors.push(r.message);
+    else data.email = r.value;
+  }
+  if (body.address !== undefined && body.address !== null) {
+    const r = validateAddress(body.address, false);
+    if (!r.valid && r.message) errors.push(r.message);
+    else data.address = r.value;
+  }
+  if (body.phone !== undefined && body.phone !== null) {
+    const r = validatePhone(body.phone, false);
+    if (!r.valid && r.message) errors.push(r.message);
+    else data.phone = r.value;
+  }
+  if (body.organizationType !== undefined && body.organizationType !== null && body.organizationType !== '') {
+    const r = validateOrganizationType(body.organizationType);
+    if (!r.valid) errors.push(r.message);
+    else data.organizationType = r.value;
+  }
+  if (body.isActive !== undefined && body.isActive !== null) {
+    data.isActive = body.isActive === true || body.isActive === 'true';
+  }
+  if (body.password !== undefined && body.password !== null && body.password !== '') {
+    const r = validatePassword(body.password);
+    if (!r.valid) errors.push(r.message);
+    else data.password = body.password; // We will hash it in controller
+  }
+
+  if (body.latitude !== undefined && body.latitude !== null && body.latitude !== '') {
+    const lat = parseFloat(body.latitude);
+    if (isNaN(lat) || lat < -90 || lat > 90) errors.push('Invalid latitude.');
+    else data.latitude = lat;
+  }
+  if (body.longitude !== undefined && body.longitude !== null && body.longitude !== '') {
+    const long = parseFloat(body.longitude);
+    if (isNaN(long) || long < -180 || long > 180) errors.push('Invalid longitude.');
+    else data.longitude = long;
+  }
+
+  if (body.organizationCategory !== undefined) {
     if (body.organizationCategory && !ORGANIZATION_CATEGORIES_LIST.includes(body.organizationCategory.toLowerCase())) {
       errors.push(`Invalid organization category. Must be one of: ${ORGANIZATION_CATEGORIES_LIST.join(', ')}.`);
     } else {
@@ -326,6 +402,7 @@ module.exports = {
   validateLogin,
   validateCreateAdmin,
   validateProfileUpdate,
+  validateAdminUpdateBySuperAdmin,
   validateEmail,
   validatePassword,
   validateName,

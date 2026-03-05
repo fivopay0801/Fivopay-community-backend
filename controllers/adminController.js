@@ -72,6 +72,58 @@ async function create(req, res, next) {
 }
 
 /**
+ * PUT /api/admin/:id - Update Admin (Super Admin only).
+ */
+async function update(req, res, next) {
+  try {
+    const { id } = req.params;
+    const admin = await User.findByPk(id);
+    if (!admin) {
+      return error(res, 'Admin not found', 404);
+    }
+
+    const validation = validateAdminUpdateBySuperAdmin(req.body);
+    if (!validation.valid) {
+      return error(res, 'Validation failed', 422, validation.errors);
+    }
+
+    const updates = validation.data;
+
+    if (updates.email && updates.email !== admin.email) {
+      const existing = await User.findOne({
+        where: { email: updates.email },
+        attributes: ['id'],
+      });
+      if (existing) {
+        return error(res, 'An account with this email already exists.', 409);
+      }
+    }
+
+    if (req.file && req.file.location) {
+      if (admin.profileImage) {
+        await deleteFileFromS3(admin.profileImage);
+      }
+      updates.profileImage = req.file.location;
+    }
+
+    if (updates.password) {
+      await admin.setPassword(updates.password);
+      delete updates.password; // Don't try to update passwordHash via attributes
+    }
+
+    await admin.update(updates);
+
+    return success(
+      res,
+      { user: admin.toSafeObject() },
+      'Admin updated successfully.'
+    );
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * POST /api/admin/login
  * Login for Admin (church, masjid, gurudwara, temple).
  */
@@ -734,6 +786,7 @@ async function getDevoteeTransactions(req, res, next) {
 
 module.exports = {
   create,
+  update,
   login,
   getMe,
   getProfile,

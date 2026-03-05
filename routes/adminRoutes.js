@@ -8,6 +8,7 @@ const { authenticate, requireSuperAdmin, requireAdmin } = require('../middleware
 const { optionalUploadImage, optionalUploadEventImage } = require('../middleware/upload');
 
 router.post('/', authenticate, requireSuperAdmin, adminController.create);
+router.put('/:id', authenticate, requireSuperAdmin, optionalUploadImage, adminController.update);
 router.post('/login', adminController.login);
 
 router.get('/me', authenticate, requireAdmin, adminController.getMe);
