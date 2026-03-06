@@ -73,16 +73,17 @@ async function getOnboardingForm(req, res, next) {
  */
 async function submitContactForm(req, res, next) {
     try {
-        const { firstName, lastName, email, message } = req.body;
+        const { fullName, orgName, phone, email, message } = req.body;
 
-        if (!firstName || !lastName || !email || !message) {
+        if (!fullName || !orgName || !phone || !email || !message) {
             return error(res, 'All fields are required.', 400);
         }
 
         // Save to database
         const contactEntry = await ContactForm.create({
-            firstName,
-            lastName,
+            fullName,
+            orgName,
+            phone,
             email,
             message
         });
@@ -103,8 +104,8 @@ async function submitContactForm(req, res, next) {
             from: process.env.SMTP_USER,
             to: email,
             subject: 'Thank you for contacting us!',
-            text: `Hi ${firstName},\n\nThank you for reaching out to us. Our team will get back to you soon.\n\nBest regards,\nFivopay Team`,
-            html: `<p>Hi <strong>${firstName}</strong>,</p><p>Thank you for reaching out to us. Our team will get back to you soon.</p><p>Best regards,<br>Fivopay Team</p>`
+            text: `Hi ${fullName},\n\nThank you for reaching out to us. Our team will get back to you soon.\n\nBest regards,\nFivopay Team`,
+            html: `<p>Hi <strong>${fullName}</strong>,</p><p>Thank you for reaching out to us. Our team will get back to you soon.</p><p>Best regards,<br>Fivopay Team</p>`
         };
 
         // 2. Send notification email to official mail
@@ -112,9 +113,11 @@ async function submitContactForm(req, res, next) {
             from: process.env.SMTP_USER,
             to: process.env.OFFICIAL_MAIL,
             subject: 'New Contact Form Submission',
-            text: `New contact request details:\n\nName: ${firstName} ${lastName}\nEmail: ${email}\nMessage: ${message}`,
+            text: `New contact request details:\n\nName: ${fullName}\nOrganization: ${orgName}\nPhone: ${phone}\nEmail: ${email}\nMessage: ${message}`,
             html: `<h3>New Contact Request Details</h3>
-                   <p><strong>Name:</strong> ${firstName} ${lastName}</p>
+                   <p><strong>Name:</strong> ${fullName}</p>
+                   <p><strong>Organization:</strong> ${orgName}</p>
+                   <p><strong>Phone:</strong> ${phone}</p>
                    <p><strong>Email:</strong> ${email}</p>
                    <p><strong>Message:</strong> ${message}</p>`
         };
