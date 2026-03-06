@@ -1,7 +1,8 @@
 'use strict';
 
-const { OnboardingForm, User } = require('../models');
+const { OnboardingForm, User, ContactForm } = require('../models');
 const { success, error } = require('../utils/response');
+const nodemailer = require('nodemailer');
 
 /**
  * POST /api/forms/onboarding
@@ -65,8 +66,71 @@ async function getOnboardingForm(req, res, next) {
         next(err);
     }
 }
+/**
+ * POST /api/form/contact
+ * Submit contact form and send emails.
+ * Public access.
+ */
+async function submitContactForm(req, res, next) {
+    try {
+        const { firstName, lastName, email, message } = req.body;
+
+        if (!firstName || !lastName || !email || !message) {
+            return error(res, 'All fields are required.', 400);
+        }
+
+        // Save to database
+        const contactEntry = await ContactForm.create({
+            firstName,
+            lastName,
+            email,
+            message
+        });
+
+        // Email Transport Configuration
+        const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST,
+            port: process.env.SMTP_PORT,
+            secure: process.env.SMTP_PORT == 465,
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            },
+        });
+
+        // 1. Send confirmation email to the user
+        const userMailOptions = {
+            from: process.env.SMTP_USER,
+            to: email,
+            subject: 'Thank you for contacting us!',
+            text: `Hi ${firstName},\n\nThank you for reaching out to us. Our team will get back to you soon.\n\nBest regards,\nFivopay Team`,
+            html: `<p>Hi <strong>${firstName}</strong>,</p><p>Thank you for reaching out to us. Our team will get back to you soon.</p><p>Best regards,<br>Fivopay Team</p>`
+        };
+
+        // 2. Send notification email to official mail
+        const adminMailOptions = {
+            from: process.env.SMTP_USER,
+            to: process.env.OFFICIAL_MAIL,
+            subject: 'New Contact Form Submission',
+            text: `New contact request details:\n\nName: ${firstName} ${lastName}\nEmail: ${email}\nMessage: ${message}`,
+            html: `<h3>New Contact Request Details</h3>
+                   <p><strong>Name:</strong> ${firstName} ${lastName}</p>
+                   <p><strong>Email:</strong> ${email}</p>
+                   <p><strong>Message:</strong> ${message}</p>`
+        };
+
+        // Send emails asynchronously (don't block response)
+        transporter.sendMail(userMailOptions).catch(err => console.error('Error sending user email:', err));
+        transporter.sendMail(adminMailOptions).catch(err => console.error('Error sending admin email:', err));
+
+        return success(res, { contactEntry }, 'Contact form submitted successfully. We will get back to you soon.');
+    } catch (err) {
+        next(err);
+    }
+}
 
 module.exports = {
     submitOnboardingForm,
     getOnboardingForm,
+    submitContactForm,
 };

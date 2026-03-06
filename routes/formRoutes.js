@@ -26,4 +26,14 @@ router.get(
     formController.getOnboardingForm
 );
 
+/**
+ * @route POST /api/form/contact
+ * @desc Submit contact form
+ * @access Public
+ */
+router.post(
+    '/contact',
+    formController.submitContactForm
+);
+
 module.exports = router;

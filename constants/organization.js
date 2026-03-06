@@ -32,7 +32,7 @@ const ORGANIZATION_SUBTYPES = Object.freeze({
     [FAITHS.ISLAM]: ['dargah', 'masjid', 'madrasa', 'khanqah', 'yateem khana'],
     [FAITHS.CHRISTIANITY]: ['church', 'shrine', 'monastery', 'mission orphanage', 'seminary'],
     [FAITHS.SIKHISM]: ['gurudwara', 'gurmat school', 'taksal', 'samadhi institution', 'community care homes'],
-    [FAITHS.BUDDHISM]: ['temple', 'monastery', 'stupa', 'vihara', 'shrine'],
+    [FAITHS.BUDDHISM]: ['temple', 'monastery', 'stupa', 'vihara', 'charity'],
     [FAITHS.OTHER]: ['other'],
 });
 
