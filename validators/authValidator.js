@@ -6,10 +6,13 @@ const {
   ORGANIZATION_CATEGORIES_LIST,
   FAITHS_LIST,
   ORGANIZATION_SUBTYPES,
-  ORGANIZATION_CATEGORIES,
   ALL_SUBTYPES_LIST,
-  NGO_SUBTYPES_LIST,
+  ORGANIZATION_CATEGORIES,
 } = require('../constants/organization');
+
+const ORGANIZATION_SUBTYPES_LIST = Array.isArray(ALL_SUBTYPES_LIST)
+  ? ALL_SUBTYPES_LIST
+  : Object.values(ORGANIZATION_SUBTYPES || {}).flat();
 
 const PASSWORD_MIN_LENGTH = 8;
 const NAME_MAX_LENGTH = 255;
@@ -146,15 +149,13 @@ function validateOrganizationHierarchy(category, faith, subtype) {
       }
     };
   } else if (cat === ORGANIZATION_CATEGORIES.NGO) {
-    if (!subtype || !NGO_SUBTYPES_LIST.includes(subtype.toLowerCase())) {
-      return { valid: false, message: `For NGO category, a valid subtype is required: ${NGO_SUBTYPES_LIST.join(', ')}.` };
-    }
+    // For NGO, we might not have faith or subtype yet (coming soon)
     return {
       valid: true,
       data: {
         organizationCategory: cat,
         faith: null,
-        organizationSubtype: subtype.toLowerCase()
+        organizationSubtype: null
       }
     };
   }
@@ -312,7 +313,7 @@ function validateProfileUpdate(body) {
     }
   }
   if (body.organizationSubtype !== undefined) {
-    if (body.organizationSubtype && !ALL_SUBTYPES_LIST.includes(body.organizationSubtype.toLowerCase())) {
+    if (body.organizationSubtype && !ORGANIZATION_SUBTYPES_LIST.includes(body.organizationSubtype.toLowerCase())) {
       errors.push(`Invalid organization subtype.`);
     } else {
       data.organizationSubtype = body.organizationSubtype ? body.organizationSubtype.toLowerCase() : null;
@@ -390,7 +391,7 @@ function validateAdminUpdateBySuperAdmin(body) {
     }
   }
   if (body.organizationSubtype !== undefined) {
-    if (body.organizationSubtype && !ALL_SUBTYPES_LIST.includes(body.organizationSubtype.toLowerCase())) {
+    if (body.organizationSubtype && !ORGANIZATION_SUBTYPES_LIST.includes(body.organizationSubtype.toLowerCase())) {
       errors.push(`Invalid organization subtype.`);
     } else {
       data.organizationSubtype = body.organizationSubtype ? body.organizationSubtype.toLowerCase() : null;
