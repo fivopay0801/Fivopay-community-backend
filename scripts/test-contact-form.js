@@ -3,8 +3,9 @@ const axios = require('axios');
 async function testContactForm() {
     const url = 'http://localhost:8000/api/form/contact';
     const data = {
-        firstName: 'John',
-        lastName: 'Doe',
+        fullName: 'John Doe',
+        orgName: 'Acme Corp',
+        phone: '+1-234-567-8901',
         email: 'john.doe@example.com',
         message: 'Hello, this is a test message from the contact form.'
     };

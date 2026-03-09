@@ -9,15 +9,20 @@ module.exports = (sequelize, DataTypes) => {
                 primaryKey: true,
                 autoIncrement: true,
             },
-            firstName: {
+            fullName: {
                 type: DataTypes.STRING(100),
                 allowNull: false,
-                field: 'first_name',
+                field: 'full_name',
             },
-            lastName: {
+            orgName: {
                 type: DataTypes.STRING(100),
                 allowNull: false,
-                field: 'last_name',
+                field: 'org_name',
+            },
+            phone: {
+                type: DataTypes.STRING(20),
+                allowNull: false,
+                field: 'phone',
             },
             email: {
                 type: DataTypes.STRING(255),

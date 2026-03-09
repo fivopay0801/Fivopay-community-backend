@@ -34,11 +34,19 @@ const createS3Storage = (prefix = 'users/') =>
 const s3Storage = createS3Storage('users/');
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+  const allowedTypes = [
+    'image/jpeg', 
+    'image/png', 
+    'image/jpg', 
+    'application/pdf',
+    'image/webp',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only JPEG, JPG, and PNG are allowed.'), false);
+    cb(new Error('Invalid file type. Allowed: JPEG, PNG, PDF, WebP, and Word docs.'), false);
   }
 };
 
@@ -46,7 +54,7 @@ const upload = multer({
   storage: s3Storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
+    fileSize: 10 * 1024 * 1024, // 10MB
   },
 }).single('image');
 
@@ -71,13 +79,13 @@ const uploadImage = (req, res, next) => {
 const uploadProfileImage = multer({
   storage: createS3Storage('devotees/'),
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
 }).single('profileImage');
 
 const uploadEventImage = multer({
   storage: createS3Storage('events/'),
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
 }).single('image');
 
 /** Only run multer when Content-Type is multipart (optional profile image for devotee update). */
@@ -178,6 +186,7 @@ const uploadOnboardingDocsFields = multer({
   { name: 'panCard', maxCount: 1 },
   { name: 'addressProof', maxCount: 1 },
   { name: 'idProof', maxCount: 1 },
+  { name: 'aadharCard', maxCount: 1 },
   { name: 'bankProof', maxCount: 1 },
 ]);
 
