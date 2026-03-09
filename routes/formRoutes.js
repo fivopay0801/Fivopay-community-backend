@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const formController = require('../controllers/formController');
 const { uploadOnboardingDocs } = require('../middleware/upload');
+const { authenticate, requireSuperAdmin } = require('../middleware/auth');
 
 /**
  * @route POST /api/form/onboarding
@@ -24,6 +25,18 @@ router.post(
 router.get(
     '/onboarding/:id?',
     formController.getOnboardingForm
+);
+
+/**
+ * @route GET /api/form/onboarding-list
+ * @desc Get all onboarding forms
+ * @access Super Admin
+ */
+router.get(
+    '/onboarding-list',
+    authenticate,
+    requireSuperAdmin,
+    formController.getAllOnboardingForms
 );
 
 /**

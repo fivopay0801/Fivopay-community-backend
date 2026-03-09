@@ -3,6 +3,7 @@
 const { OnboardingForm, User, ContactForm } = require('../models');
 const { success, error } = require('../utils/response');
 const nodemailer = require('nodemailer');
+const { ROLES } = require('../constants/roles');
 
 /**
  * POST /api/forms/onboarding
@@ -63,6 +64,29 @@ async function getOnboardingForm(req, res, next) {
         }
 
         return success(res, { form });
+    } catch (err) {
+        next(err);
+    }
+}
+
+/**
+ * GET /api/form/onboarding-list
+ * Get all onboarding forms (Super Admin only).
+ */
+async function getAllOnboardingForms(req, res, next) {
+    try {
+        const forms = await OnboardingForm.findAll({
+            include: [
+                {
+                    model: User,
+                    as: 'admin',
+                    attributes: ['id', 'name', 'email'],
+                },
+            ],
+            order: [['created_at', 'DESC']],
+        });
+
+        return success(res, { forms, total: forms.length });
     } catch (err) {
         next(err);
     }
@@ -136,5 +160,6 @@ async function submitContactForm(req, res, next) {
 module.exports = {
     submitOnboardingForm,
     getOnboardingForm,
+    getAllOnboardingForms,
     submitContactForm,
 };
