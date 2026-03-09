@@ -20,6 +20,7 @@ async function submitOnboardingForm(req, res, next) {
             if (req.files.panCard) formData.panCardUrl = req.files.panCard[0].location;
             if (req.files.addressProof) formData.addressProofUrl = req.files.addressProof[0].location;
             if (req.files.idProof) formData.idProofUrl = req.files.idProof[0].location;
+            if (req.files.aadharCard) formData.aadharCardUrl = req.files.aadharCard[0].location;
             if (req.files.bankProof) formData.bankProofUrl = req.files.bankProof[0].location;
         }
 

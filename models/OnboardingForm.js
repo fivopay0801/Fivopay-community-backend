@@ -96,6 +96,11 @@ module.exports = (sequelize, DataTypes) => {
                 allowNull: true,
                 field: 'signatory_email',
             },
+            aadharNumber: {
+                type: DataTypes.STRING(20),
+                allowNull: true,
+                field: 'aadhar_number',
+            },
             // Section 4: Document URLs
             registrationCertificateUrl: {
                 type: DataTypes.STRING(500),
@@ -116,6 +121,11 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.STRING(500),
                 allowNull: true,
                 field: 'id_proof_url',
+            },
+            aadharCardUrl: {
+                type: DataTypes.STRING(500),
+                allowNull: true,
+                field: 'aadhar_card_url',
             },
             bankProofUrl: {
                 type: DataTypes.STRING(500),
