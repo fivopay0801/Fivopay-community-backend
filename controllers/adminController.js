@@ -300,7 +300,7 @@ async function getMySupportTickets(req, res, next) {
       const plain = t.get({ plain: true });
       const messages = plain.messages || [];
       const lastMessage = messages.length ? messages[messages.length - 1] : null;
-      const unreadCount = messages.filter((m) => !m.isRead).length;
+      const unreadCount = messages.filter((m) => !m.isRead && m.senderRole !== 'ADMIN').length;
 
       return {
         ...plain,
@@ -525,8 +525,7 @@ async function createWalkInCashDonation(req, res, next) {
       city,
       amount,
       eventId,
-      utr,
-      transactionId,
+      paymentMethod,
     } = req.body || {};
 
     if (!mobile || typeof mobile !== 'string') {
@@ -578,8 +577,7 @@ async function createWalkInCashDonation(req, res, next) {
       eventId: eventId || null,
       amount: numericAmount,
       status: DONATION_STATUS.CAPTURED,
-      utr: utr || null,
-      transactionId: transactionId || null,
+      paymentMethod: paymentMethod || 'cash',
       razorpayOrderId: null,
       razorpayPaymentId: null,
       razorpaySignature: null,
