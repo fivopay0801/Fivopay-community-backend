@@ -8,6 +8,9 @@ const { optionalUploadImage } = require('../middleware/upload');
 
 router.post('/register', superAdminController.register);
 router.post('/login', superAdminController.login);
+router.post('/forgot-password', superAdminController.forgotPassword);
+router.post('/verify-forgot-otp', superAdminController.verifyForgotOtp);
+router.post('/reset-password', superAdminController.resetPassword);
 
 router.get('/me', authenticate, requireSuperAdmin, superAdminController.getMe);
 router.get('/profile', authenticate, requireSuperAdmin, superAdminController.getProfile);

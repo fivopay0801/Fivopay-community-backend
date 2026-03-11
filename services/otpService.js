@@ -1,4 +1,5 @@
 const { sendOtpSms } = require('./fast2sms');
+const { sendMail } = require('./emailService');
 
 /**
  * Generate a 4-digit OTP. 
@@ -49,7 +50,29 @@ async function sendOtp(mobile, otp) {
   return result.ok;
 }
 
+/**
+ * Send OTP to email.
+ * @param {string} email
+ * @param {string} otp
+ * @returns {Promise<boolean>} true if sent successfully
+ */
+async function sendEmailOtp(email, otp) {
+  const useStaticOtp = process.env.USE_STATIC_OTP !== 'false';
+
+  if (useStaticOtp || otp === '0000') {
+    console.log(`[OTP DEBUG] Static OTP enabled. Skipping real email for ${email}. OTP: ${otp}`);
+    return true;
+  }
+
+  const subject = 'Your Password Reset OTP';
+  const text = `Your OTP for password reset is: ${otp}. It is valid for 10 minutes.`;
+  const html = `<p>Your OTP for password reset is: <strong>${otp}</strong>.</p><p>It is valid for 10 minutes.</p>`;
+
+  return await sendMail({ to: email, subject, text, html });
+}
+
 module.exports = {
   generateOtp,
   sendOtp,
+  sendEmailOtp,
 };

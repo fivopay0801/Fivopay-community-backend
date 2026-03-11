@@ -50,10 +50,23 @@ async function submitOnboardingForm(req, res, next) {
 async function getOnboardingForm(req, res, next) {
     try {
         const id = req.params.id;
+
+        // Special case: 'all' to return all forms (Super Admin only)
+        if (id === 'all') {
+            if (req.user && req.user.role === ROLES.SUPER_ADMIN) {
+                return getAllOnboardingForms(req, res, next);
+            }
+            return error(res, 'Forbidden. Super admin access required for all forms.', 403);
+        }
+
         const adminId = req.user ? req.user.id : null;
 
         let form;
         if (id) {
+            // Validate that id is a number to avoid Sequelize parsing error
+            if (!/^\d+$/.test(id)) {
+                return error(res, 'Invalid onboarding form ID.', 400);
+            }
             form = await OnboardingForm.findByPk(id);
         } else if (adminId) {
             form = await OnboardingForm.findOne({ where: { adminId } });

@@ -94,6 +94,32 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         field: 'organization_subtype',
       },
+      otpHash: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'otp_hash',
+      },
+      otpExpiresAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'otp_expires_at',
+      },
+      lastOtpSentAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'last_otp_sent_at',
+      },
+      otpCount: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        field: 'otp_count',
+      },
+      otpWindowStartAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'otp_window_start_at',
+      },
     },
     {
       tableName: 'users',
@@ -148,6 +174,19 @@ module.exports = (sequelize, DataTypes) => {
 
   User.prototype.checkPassword = async function (plainPassword) {
     return bcrypt.compare(plainPassword, this.passwordHash);
+  };
+
+  User.prototype.setOtp = async function (otp) {
+    this.otpHash = await bcrypt.hash(String(otp), SALT_ROUNDS);
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10 minutes expiry
+    this.otpExpiresAt = expiresAt;
+  };
+
+  User.prototype.verifyOtp = async function (otp) {
+    if (!this.otpHash || !this.otpExpiresAt) return false;
+    if (new Date() > this.otpExpiresAt) return false;
+    return bcrypt.compare(String(otp), this.otpHash);
   };
 
   User.prototype.toSafeObject = function () {
