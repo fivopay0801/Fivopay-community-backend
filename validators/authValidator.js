@@ -402,6 +402,74 @@ function validateAdminUpdateBySuperAdmin(body) {
   return { valid: true, data };
 }
 
+/**
+ * Validate verify-forgot-otp body: { email, otp }.
+ */
+function validateVerifyForgotOtp(body) {
+  const errors = [];
+
+  const emailResult = validateEmail(body.email);
+  if (!emailResult.valid) errors.push(emailResult.message);
+
+  const otp = body.otp;
+  if (otp === undefined || otp === null || String(otp).trim() === '') {
+    errors.push('OTP is required.');
+  } else {
+    const otpStr = String(otp).trim();
+    if (!/^\d{4}$/.test(otpStr)) {
+      errors.push('OTP must be a 4-digit code.');
+    }
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, errors };
+  }
+
+  return {
+    valid: true,
+    data: {
+      email: emailResult.value,
+      otp: String(body.otp).trim(),
+    },
+  };
+}
+
+/**
+ * Validate reset-password body: { email, otp, password }.
+ */
+function validateResetPassword(body) {
+  const errors = [];
+
+  const emailResult = validateEmail(body.email);
+  if (!emailResult.valid) errors.push(emailResult.message);
+
+  const otp = body.otp;
+  if (otp === undefined || otp === null || String(otp).trim() === '') {
+    errors.push('OTP is required.');
+  } else {
+    const otpStr = String(otp).trim();
+    if (!/^\d{4}$/.test(otpStr)) {
+      errors.push('OTP must be a 4-digit code.');
+    }
+  }
+
+  const passwordResult = validatePassword(body.password);
+  if (!passwordResult.valid) errors.push(passwordResult.message);
+
+  if (errors.length > 0) {
+    return { valid: false, errors };
+  }
+
+  return {
+    valid: true,
+    data: {
+      email: emailResult.value,
+      otp: String(body.otp).trim(),
+      password: body.password,
+    },
+  };
+}
+
 module.exports = {
   validateSuperAdminRegister,
   validateLogin,
@@ -416,4 +484,6 @@ module.exports = {
   validatePhone,
   validateOrganizationType,
   validateOrganizationHierarchy,
+  validateVerifyForgotOtp,
+  validateResetPassword,
 };
