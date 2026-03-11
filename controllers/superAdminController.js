@@ -19,7 +19,7 @@ const {
   validateVerifyForgotOtp,
   validateResetPassword,
 } = require('../validators/authValidator');
-const { generateOtp, sendEmailOtp } = require('../services/otpService');
+const { generateOtp, sendEmailOtp, generateRandomOtp } = require('../services/otpService');
 const { deleteFileFromS3 } = require('../middleware/upload');
 
 /**
@@ -151,7 +151,7 @@ async function forgotPassword(req, res, next) {
       return error(res, 'Maximum OTP limit reached (3 per hour). Please try again later.', 429);
     }
 
-    const otp = generateOtp();
+    const otp = generateRandomOtp();
     await user.setOtp(otp);
 
     user.lastOtpSentAt = now;

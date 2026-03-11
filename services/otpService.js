@@ -12,6 +12,14 @@ function generateOtp() {
 }
 
 /**
+ * Generate a random 4-digit OTP.
+ * @returns {string} 4-digit OTP
+ */
+function generateRandomOtp() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+/**
  * Send OTP to mobile using Fast2SMS DLT route.
  * @param {string} mobile
  * @param {string} otp
@@ -73,6 +81,7 @@ async function sendEmailOtp(email, otp) {
 
 module.exports = {
   generateOtp,
+  generateRandomOtp,
   sendOtp,
   sendEmailOtp,
 };
