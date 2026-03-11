@@ -10,6 +10,9 @@ const { optionalUploadImage, optionalUploadEventImage } = require('../middleware
 router.post('/', authenticate, requireSuperAdmin, adminController.create);
 router.put('/:id', authenticate, requireSuperAdmin, optionalUploadImage, adminController.update);
 router.post('/login', adminController.login);
+router.post('/forgot-password', adminController.forgotPassword);
+router.post('/verify-forgot-otp', adminController.verifyForgotOtp);
+router.post('/reset-password', adminController.resetPassword);
 
 router.get('/me', authenticate, requireAdmin, adminController.getMe);
 router.get('/profile', authenticate, requireAdmin, adminController.getProfile);

@@ -12,8 +12,12 @@ const {
   validateCreateAdmin,
   validateProfileUpdate,
   validateAdminUpdateBySuperAdmin,
+  validateEmail,
+  validateVerifyForgotOtp,
+  validateResetPassword,
 } = require('../validators/authValidator');
 const { validateRaiseSupport, validateSupportMessage } = require('../validators/supportValidator');
+const { generateOtp, sendEmailOtp } = require('../services/otpService');
 const { deleteFileFromS3 } = require('../middleware/upload');
 
 /**
@@ -159,6 +163,122 @@ async function login(req, res, next) {
       token,
       expiresIn: process.env.JWT_EXPIRES_IN || '7d',
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/admin/forgot-password
+ * Send OTP to email for password reset.
+ */
+async function forgotPassword(req, res, next) {
+  try {
+    const validation = validateEmail(req.body.email);
+    if (!validation.valid) {
+      return error(res, validation.message, 422);
+    }
+    const email = validation.value;
+
+    const user = await User.findOne({ where: { email, role: ROLES.ADMIN } });
+    if (!user) {
+      // For security, don't reveal if email exists
+      return success(res, { message: 'If this email is registered, you will receive an OTP shortly.' });
+    }
+
+    const now = new Date();
+    // Resend delay (60s)
+    if (user.lastOtpSentAt) {
+      const secondsSinceLast = (now - new Date(user.lastOtpSentAt)) / 1000;
+      if (secondsSinceLast < 60) {
+        const wait = Math.ceil(60 - secondsSinceLast);
+        return error(res, `Please wait ${wait} seconds before requesting a new OTP.`, 429);
+      }
+    }
+
+    // Hourly limit (3 per hour)
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    if (!user.otpWindowStartAt || new Date(user.otpWindowStartAt) < oneHourAgo) {
+      user.otpWindowStartAt = now;
+      user.otpCount = 0;
+    }
+
+    if (user.otpCount >= 3) {
+      return error(res, 'Maximum OTP limit reached (3 per hour). Please try again later.', 429);
+    }
+
+    const otp = generateOtp();
+    await user.setOtp(otp);
+
+    user.lastOtpSentAt = now;
+    user.otpCount += 1;
+    await user.save();
+
+    await sendEmailOtp(email, otp);
+
+    return success(res, { message: 'OTP sent successfully to your registered email.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/admin/verify-forgot-otp
+ * Verify OTP for password reset.
+ */
+async function verifyForgotOtp(req, res, next) {
+  try {
+    const validation = validateVerifyForgotOtp(req.body);
+    if (!validation.valid) {
+      return error(res, 'Validation failed', 422, validation.errors);
+    }
+    const { email, otp } = validation.data;
+
+    const user = await User.findOne({ where: { email, role: ROLES.ADMIN } });
+    if (!user) {
+      return error(res, 'Invalid email or OTP.', 401);
+    }
+
+    const isValid = await user.verifyOtp(otp);
+    if (!isValid) {
+      return error(res, 'Invalid or expired OTP.', 401);
+    }
+
+    return success(res, { message: 'OTP verified successfully. You can now reset your password.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/admin/reset-password
+ * Reset password using OTP.
+ */
+async function resetPassword(req, res, next) {
+  try {
+    const validation = validateResetPassword(req.body);
+    if (!validation.valid) {
+      return error(res, 'Validation failed', 422, validation.errors);
+    }
+    const { email, otp, password } = validation.data;
+
+    const user = await User.findOne({ where: { email, role: ROLES.ADMIN } });
+    if (!user) {
+      return error(res, 'Invalid email or OTP.', 401);
+    }
+
+    const isValid = await user.verifyOtp(otp);
+    if (!isValid) {
+      return error(res, 'Invalid or expired OTP.', 401);
+    }
+
+    // Update password and clear OTP
+    await user.setPassword(password);
+    user.otpHash = null;
+    user.otpExpiresAt = null;
+    await user.save();
+
+    return success(res, null, 'Password reset successfully. You can now login with your new password.');
   } catch (err) {
     next(err);
   }
@@ -800,4 +920,7 @@ module.exports = {
   createWalkInCashDonation,
   getSupportTicketWithMessages,
   addSupportMessageAsAdmin,
+  forgotPassword,
+  verifyForgotOtp,
+  resetPassword,
 };
