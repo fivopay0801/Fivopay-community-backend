@@ -417,7 +417,12 @@ async function getMySupportTickets(req, res, next) {
       where: { devoteeId: req.devotee.id },
       order: [['created_at', 'DESC']],
     });
-    return success(res, { tickets, total: tickets.length });
+    const mapped = tickets.map(t => {
+      const plain = t.get({ plain: true });
+      if (plain.status === 'technical_issue') plain.status = 'in_progress';
+      return plain;
+    });
+    return success(res, { tickets: mapped, total: tickets.length });
   } catch (err) {
     next(err);
   }
@@ -462,6 +467,9 @@ async function getSupportTicketWithMessages(req, res, next) {
     );
 
     const plain = ticket.get({ plain: true });
+    if (plain.status === 'technical_issue') {
+      plain.status = 'in_progress';
+    }
     return success(res, { ticket: plain });
   } catch (err) {
     next(err);
