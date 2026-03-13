@@ -33,6 +33,7 @@ router.get('/organizations/:adminId/events', eventController.getOrganizationEven
 
 router.post('/donation/create-order', authenticateDevotee, donationController.createDonationOrder);
 router.post('/donation/verify', authenticateDevotee, donationController.verifyDonation);
+router.post('/donation/sync/:id', authenticateDevotee, donationController.checkDonationStatus);
 router.get('/donations', authenticateDevotee, donationController.getMyDonations);
 router.get('/stats', authenticateDevotee, donationController.getStats);
 

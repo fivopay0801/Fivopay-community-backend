@@ -3,19 +3,20 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 
-const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
-const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
-
 let razorpayInstance = null;
 
 function getRazorpay() {
-  if (!razorpayKeyId || !razorpayKeySecret) {
+  const key_id = process.env.RAZORPAY_KEY_ID;
+  const key_secret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!key_id || !key_secret) {
     throw new Error('RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set in environment.');
   }
+
   if (!razorpayInstance) {
     razorpayInstance = new Razorpay({
-      key_id: razorpayKeyId,
-      key_secret: razorpayKeySecret,
+      key_id: key_id,
+      key_secret: key_secret,
     });
   }
   return razorpayInstance;
@@ -72,9 +73,20 @@ async function fetchPayment(paymentId) {
   return rzp.payments.fetch(paymentId);
 }
 
+/**
+ * Fetch payments for a Razorpay order.
+ * @param {string} orderId 
+ * @returns {Promise<Object>}
+ */
+async function fetchOrderPayments(orderId) {
+  const rzp = getRazorpay();
+  return rzp.orders.fetchPayments(orderId);
+}
+
 module.exports = {
   createOrder,
   verifyPaymentSignature,
   fetchPayment,
-  getRazorpayKeyId: () => razorpayKeyId,
+  fetchOrderPayments,
+  getRazorpayKeyId: () => process.env.RAZORPAY_KEY_ID,
 };

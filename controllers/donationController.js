@@ -3,7 +3,7 @@
 const { User, Devotee, DevoteeFavorite, Donation, Event, sequelize } = require('../models');
 const { DONATION_STATUS } = require('../constants/donation');
 const { success, error } = require('../utils/response');
-const { createOrder, verifyPaymentSignature, fetchPayment } = require('../services/razorpayService');
+const { createOrder, verifyPaymentSignature, fetchPayment, fetchOrderPayments } = require('../services/razorpayService');
 const { validateCreateDonation, validateVerifyDonation } = require('../validators/devoteeValidator');
 
 /**
@@ -275,9 +275,87 @@ function donationToResponse(donation) {
   };
 }
 
+/**
+ * POST /api/devotee/donation/check-status/:id
+ * Check the status of a pending donation by querying Razorpay for associated payments.
+ */
+async function checkDonationStatus(req, res, next) {
+  try {
+    const { id } = req.params;
+    const devotee = req.devotee;
+
+    const donation = await Donation.findOne({
+      where: {
+        id,
+        devoteeId: devotee.id,
+      },
+      include: [{ model: User, as: 'organization', attributes: ['id', 'orgId', 'name'] }],
+    });
+
+    if (!donation) {
+      return error(res, 'Donation not found.', 404);
+    }
+
+    if (donation.status === DONATION_STATUS.CAPTURED) {
+      return success(res, { donation: donationToResponse(donation) }, 'Payment already verified.');
+    }
+
+    // Fetch payments for the Razorpay order
+    const paymentsResponse = await fetchOrderPayments(donation.razorpayOrderId);
+    
+    // Find a successful payment (captured or authorized)
+    const successPayment = paymentsResponse.items.find(p => p.status === 'captured' || p.status === 'authorized');
+
+    if (!successPayment) {
+      return error(res, 'No successful payment found for this order on Razorpay yet.', 400);
+    }
+
+    const razorpayPaymentId = successPayment.id;
+    let utr = null;
+    let transactionId = null;
+    let paymentMethod = successPayment.method;
+
+    if (successPayment.acquirer_data) {
+      utr = successPayment.acquirer_data.rrn || successPayment.acquirer_data.upi_transaction_id;
+      transactionId = successPayment.acquirer_data.bank_transaction_id;
+    }
+    
+    if (!transactionId) {
+      transactionId = razorpayPaymentId;
+    }
+
+    await donation.update({
+      razorpayPaymentId,
+      utr,
+      transactionId,
+      paymentMethod,
+      status: DONATION_STATUS.CAPTURED,
+    });
+
+    if (donation.eventId) {
+      const ev = await Event.findByPk(donation.eventId);
+      if (ev) {
+        const currentRaised = Number(ev.raisedAmountPaise || 0);
+        const donationAmountPaise = Math.round(Number(donation.amount) * 100);
+        await ev.update({ raisedAmountPaise: currentRaised + donationAmountPaise });
+      }
+    }
+
+    return success(
+      res,
+      { donation: donationToResponse(donation) },
+      'Payment verified successfully. Status updated.',
+      200
+    );
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   createDonationOrder,
   verifyDonation,
+  checkDonationStatus,
   getMyDonations,
   getStats,
 };
