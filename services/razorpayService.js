@@ -40,7 +40,7 @@ async function createOrder(amountPaise, receipt = null) {
     orderId: order.id,
     amount: order.amount,
     currency: order.currency,
-    keyId: razorpayKeyId,
+    keyId: process.env.RAZORPAY_KEY_ID,
   };
 }
 
@@ -52,12 +52,12 @@ async function createOrder(amountPaise, receipt = null) {
  * @returns {boolean}
  */
 function verifyPaymentSignature(orderId, paymentId, signature) {
-  if (!razorpayKeySecret) {
+  if (!process.env.RAZORPAY_KEY_SECRET) {
     throw new Error('RAZORPAY_KEY_SECRET must be set to verify payments.');
   }
   const body = `${orderId}|${paymentId}`;
   const expected = crypto
-    .createHmac('sha256', razorpayKeySecret)
+    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
     .update(body)
     .digest('hex');
   return expected === signature;
