@@ -7,8 +7,7 @@ const { sendMail } = require('./emailService');
  * @returns {string} 4-digit OTP
  */
 function generateOtp() {
-  // return String(Math.floor(1000 + Math.random() * 9000));
-  return '0000';
+  return String(Math.floor(1000 + Math.random() * 9000));
 }
 
 /**
@@ -27,7 +26,7 @@ function generateRandomOtp() {
  */
 async function sendOtp(mobile, otp) {
   // If we are using static OTP (0000), we skip real SMS sending to avoid charges.
-  const useStaticOtp = process.env.USE_STATIC_OTP !== 'false'; // Defaults to true as requested
+  const useStaticOtp = process.env.USE_STATIC_OTP === 'true'; // Default to false for dynamic OTPs
 
   if (useStaticOtp || otp === '0000') {
     console.log(`[OTP DEBUG] Static OTP enabled. Skipping real SMS for ${mobile}. OTP: ${otp}`);
@@ -65,7 +64,7 @@ async function sendOtp(mobile, otp) {
  * @returns {Promise<boolean>} true if sent successfully
  */
 async function sendEmailOtp(email, otp) {
-  const useStaticOtp = process.env.USE_STATIC_OTP !== 'false';
+  const useStaticOtp = process.env.USE_STATIC_OTP === 'true';
 
   if (useStaticOtp || otp === '0000') {
     console.log(`[OTP DEBUG] Static OTP enabled. Skipping real email for ${email}. OTP: ${otp}`);
