@@ -228,9 +228,9 @@ function validateCreateDonation(body) {
     }
   }
 
-  if (normalizedType === 'charity' && !eventIdNum) {
+  /* if (normalizedType === 'charity' && !eventIdNum) {
     errors.push('For charity type, eventId is required.');
-  }
+  } */
 
   if (errors.length > 0) return { valid: false, errors };
   return {

@@ -10,6 +10,7 @@ const {
   FAITHS,
   FAITHS_LIST,
   ORGANIZATION_SUBTYPES,
+  NGO_SUBTYPES_LIST,
   ALL_SUBTYPES_LIST,
 } = require('../constants/organization');
 const { generateDevoteeToken } = require('../middleware/auth');
@@ -216,6 +217,10 @@ async function getOrganizationTypes(req, res, next) {
       categories: ORGANIZATION_CATEGORIES_LIST.map(cat => ({
         id: cat,
         label: cat === ORGANIZATION_CATEGORIES.FAITH ? 'Faith' : 'NGO',
+        subtypes: cat === ORGANIZATION_CATEGORIES.NGO ? NGO_SUBTYPES_LIST.map(s => ({
+          id: s,
+          label: s.charAt(0).toUpperCase() + s.slice(1),
+        })) : [],
       })),
       faiths: FAITHS_LIST.map(f => ({
         id: f,
@@ -224,6 +229,10 @@ async function getOrganizationTypes(req, res, next) {
           id: s,
           label: s.charAt(0).toUpperCase() + s.slice(1),
         })),
+      })),
+      ngoSubtypes: NGO_SUBTYPES_LIST.map(s => ({
+        id: s,
+        label: s.charAt(0).toUpperCase() + s.slice(1),
       })),
       // Legacy support for older frontend versions
       organizationTypes: ORGANIZATION_TYPES_LIST.map((type) => ({

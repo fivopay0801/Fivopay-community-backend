@@ -48,10 +48,10 @@ async function createDonationOrder(req, res, next) {
       }
     }
 
-    const resolvedType = event && event.eventType === 'charity' ? 'charity' : 'donation';
-    if (donationType === 'charity' && resolvedType !== 'charity') {
+    const resolvedType = donationType || (event && event.eventType === 'charity' ? 'charity' : 'donation');
+    /* if (donationType === 'charity' && resolvedType !== 'charity') {
       return error(res, 'For charity type, eventId must belong to a charity event.', 422);
-    }
+    } */
 
     const razorpayOrder = await createOrder(amountPaise, `don_${devotee.id}_${adminId}_${eventId || 'org'}_${Date.now()}`);
 
@@ -215,7 +215,7 @@ async function getMyDonations(req, res, next) {
         {
           model: User,
           as: 'organization',
-          attributes: ['id', 'orgId', 'name', 'organizationType', 'profileImage'],
+          attributes: ['id', 'orgId', 'name', 'email', 'address', 'organizationType', 'profileImage', 'panNumber', 'registration80GNumber'],
         },
         {
           model: Event,
