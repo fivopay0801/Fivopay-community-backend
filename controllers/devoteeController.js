@@ -135,8 +135,8 @@ async function verifyOtp(req, res, next) {
 
 /**
  * PUT /api/devotee/details
- * Update devotee details (name, email, city, profileImage). Requires auth.
- * Body: { name?, email?, city? } or multipart with profileImage file.
+ * Update devotee details (name, email, city, profileImage, panNumber, panCardImage). Requires auth.
+ * Body: { name?, email?, city?, panNumber? } or multipart with profileImage/panCardImage files.
  */
 async function updateDetails(req, res, next) {
   try {
@@ -144,21 +144,44 @@ async function updateDetails(req, res, next) {
     if (!validation.valid) {
       return error(res, 'Validation failed', 422, validation.errors);
     }
-    const { name, email, city } = validation.data;
+    const { name, email, city, panNumber } = validation.data;
     const devotee = req.devotee;
 
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (email !== undefined) updates.email = email;
     if (city !== undefined) updates.city = city;
+    if (panNumber !== undefined) updates.panNumber = panNumber;
 
-    if (req.file?.location) {
+    const profileImageFile = req.files?.profileImage?.[0];
+    const panCardFile = req.files?.panCardImage?.[0];
+
+    if (profileImageFile?.location) {
       if (devotee.profileImage) {
         await deleteFileFromS3(devotee.profileImage);
       }
-      updates.profileImage = req.file.location;
+      updates.profileImage = profileImageFile.location;
     }
-    console.log("devote", devotee);
+
+    if (panCardFile?.location) {
+      if (devotee.panCardImage) {
+        await deleteFileFromS3(devotee.panCardImage);
+      }
+      updates.panCardImage = panCardFile.location;
+    }
+
+    // First-time KYC requirement: PAN number + PAN card image must be provided at least once.
+    const isFirstPanSetup = !devotee.panNumber && !devotee.panCardImage;
+    if (isFirstPanSetup) {
+      const willHavePanNumber = Boolean(updates.panNumber);
+      const willHavePanCard = Boolean(updates.panCardImage);
+      if (!willHavePanNumber) {
+        return error(res, 'PAN number is required for first-time profile setup.', 422);
+      }
+      if (!willHavePanCard) {
+        return error(res, 'PAN card image is required for first-time profile setup.', 422);
+      }
+    }
 
     if (Object.keys(updates).length === 0) {
       return error(res, 'No updates provided.', 400);

@@ -7,6 +7,7 @@ const { DONATION_STATUS } = require('../constants/donation');
 const { SUPPORT_STATUS_LIST } = require('../constants/support');
 const { generateToken } = require('../middleware/auth');
 const { success, error } = require('../utils/response');
+const { getNextReceiptNumberForAdmin } = require('../services/receiptService');
 const {
   validateLogin,
   validateCreateAdmin,
@@ -34,7 +35,8 @@ async function create(req, res, next) {
     const {
       email, password, name, organizationType,
       organizationCategory, faith, organizationSubtype,
-      phone, address, latitude, longitude
+      phone, address, latitude, longitude,
+      panNumber, registration80GNumber
     } = validation.data;
 
     const existing = await User.findOne({
@@ -56,6 +58,8 @@ async function create(req, res, next) {
       organizationCategory,
       faith,
       organizationSubtype,
+      panNumber,
+      registration80GNumber,
       createdById: req.user.id,
       latitude,
       longitude,
@@ -690,17 +694,23 @@ async function createWalkInCashDonation(req, res, next) {
       defaults: { displayOrder: 1 },
     });
 
-    // Record the cash donation as CAPTURED
-    const donation = await Donation.create({
-      devoteeId: devotee.id,
-      adminId,
-      eventId: eventId || null,
-      amount: numericAmount,
-      status: DONATION_STATUS.CAPTURED,
-      paymentMethod: paymentMethod || 'cash',
-      razorpayOrderId: null,
-      razorpayPaymentId: null,
-      razorpaySignature: null,
+    const donation = await sequelize.transaction(async (t) => {
+      const receiptNumber = await getNextReceiptNumberForAdmin(adminId, t);
+      return Donation.create(
+        {
+          devoteeId: devotee.id,
+          adminId,
+          eventId: eventId || null,
+          amount: numericAmount,
+          status: DONATION_STATUS.CAPTURED,
+          paymentMethod: paymentMethod || 'cash',
+          razorpayOrderId: null,
+          razorpayPaymentId: null,
+          razorpaySignature: null,
+          receiptNumber,
+        },
+        { transaction: t }
+      );
     });
 
     return success(
@@ -843,6 +853,7 @@ async function getDevoteeTransactions(req, res, next) {
         amount: plain.amount,
         amountRupees: plain.amount,
         status: plain.status,
+        receiptNumber: plain.receiptNumber || plain.receipt_number || null,
         razorpayOrderId: plain.razorpayOrderId,
         razorpayPaymentId: plain.razorpayPaymentId,
         paymentMethod: plain.paymentMethod,

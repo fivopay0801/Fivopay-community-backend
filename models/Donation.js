@@ -77,6 +77,17 @@ module.exports = (sequelize, DataTypes) => {
         field: 'payment_method',
         comment: 'Payment method used (e.g., upi, card, netbanking, wallet, cash)',
       },
+      receiptNumber: {
+        type: DataTypes.STRING(10),
+        allowNull: true,
+        field: 'receipt_number',
+      },
+      donationType: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        defaultValue: 'donation',
+        field: 'donation_type',
+      },
     },
     {
       tableName: 'donations',
@@ -90,6 +101,8 @@ module.exports = (sequelize, DataTypes) => {
         { fields: ['event_id'] },
         { fields: ['razorpay_order_id'] },
         { fields: ['status'] },
+        { fields: ['donation_type'] },
+        { fields: ['admin_id', 'receipt_number'], unique: true },
       ],
     }
   );

@@ -39,7 +39,7 @@ const ORGANIZATION_SUBTYPES = Object.freeze({
 /**
  * NGO Subtypes.
  */
-const NGO_SUBTYPES_LIST = ['welfare', 'animals', 'medical', 'education', 'environment', 'human rights', 'disaster relief', 'women empowerment', 'child welfare', 'elderly care', 'youth development', 'community development', 'arts and culture', 'sports', 'research and development', 'advocacy', 'legal aid', 'health and wellness', 'food security', 'housing', 'water and sanitation', 'energy', 'technology', 'agriculture', 'fisheries', 'forestry', 'mining', 'manufacturing', 'services', 'other'];
+const NGO_SUBTYPES_LIST = ['trust', 'society', 'company', 'foundation', 'other'];
 
 /**
  * Get all possible subtypes as a flat list.

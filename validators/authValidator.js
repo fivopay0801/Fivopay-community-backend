@@ -18,6 +18,43 @@ const PASSWORD_MIN_LENGTH = 8;
 const NAME_MAX_LENGTH = 255;
 const ADDRESS_MAX_LENGTH = 500;
 const PHONE_MAX_LENGTH = 20;
+const PAN_MAX_LENGTH = 20;
+const REG_80G_MAX_LENGTH = 100;
+
+function validatePanNumber(pan, required = true) {
+  if (!pan || typeof pan !== 'string') {
+    if (!required) return { valid: true, value: null };
+    return { valid: false, message: 'PAN number is required.' };
+  }
+  const trimmed = pan.trim().toUpperCase();
+  if (!trimmed) {
+    if (!required) return { valid: true, value: null };
+    return { valid: false, message: 'PAN number is required.' };
+  }
+  if (trimmed.length > PAN_MAX_LENGTH) {
+    return { valid: false, message: `PAN number must be at most ${PAN_MAX_LENGTH} characters.` };
+  }
+  if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(trimmed)) {
+    return { valid: false, message: 'Invalid PAN format. Example: ABCDE1234F.' };
+  }
+  return { valid: true, value: trimmed };
+}
+
+function validate80GRegistrationNumber(reg, required = true) {
+  if (!reg || typeof reg !== 'string') {
+    if (!required) return { valid: true, value: null };
+    return { valid: false, message: '80G registration number is required.' };
+  }
+  const trimmed = reg.trim();
+  if (!trimmed) {
+    if (!required) return { valid: true, value: null };
+    return { valid: false, message: '80G registration number is required.' };
+  }
+  if (trimmed.length > REG_80G_MAX_LENGTH) {
+    return { valid: false, message: `80G registration number must be at most ${REG_80G_MAX_LENGTH} characters.` };
+  }
+  return { valid: true, value: trimmed };
+}
 
 /**
  * Validate email format.
@@ -149,13 +186,19 @@ function validateOrganizationHierarchy(category, faith, subtype) {
       }
     };
   } else if (cat === ORGANIZATION_CATEGORIES.NGO) {
-    // For NGO, we might not have faith or subtype yet (coming soon)
+    // For NGO, subtype is required (trust/society/company/foundation/other).
+    const allowedNgo = Array.isArray(ALL_SUBTYPES_LIST) ? ALL_SUBTYPES_LIST : [];
+    const ngoAllowed = allowedNgo.filter((s) => typeof s === 'string' && ['trust', 'society', 'company', 'foundation', 'other'].includes(s.toLowerCase()));
+    const normalizedSubtype = subtype ? String(subtype).toLowerCase().trim() : '';
+    if (!normalizedSubtype || !ngoAllowed.map(s => s.toLowerCase()).includes(normalizedSubtype)) {
+      return { valid: false, message: `For NGO category, a valid subtype is required: trust, society, company, foundation, other.` };
+    }
     return {
       valid: true,
       data: {
         organizationCategory: cat,
         faith: null,
-        organizationSubtype: null
+        organizationSubtype: normalizedSubtype
       }
     };
   }
@@ -235,6 +278,11 @@ function validateCreateAdmin(body) {
   const addressResult = validateAddress(body.address, true);
   if (!addressResult.valid) errors.push(addressResult.message);
 
+  const panResult = validatePanNumber(body.panNumber, true);
+  if (!panResult.valid) errors.push(panResult.message);
+  const reg80gResult = validate80GRegistrationNumber(body.registration80GNumber, true);
+  if (!reg80gResult.valid) errors.push(reg80gResult.message);
+
   let lat = null;
   let long = null;
   if (body.latitude !== undefined && body.latitude !== '') {
@@ -266,6 +314,8 @@ function validateCreateAdmin(body) {
       address: addressResult.value,
       latitude: lat,
       longitude: long,
+      panNumber: panResult.value,
+      registration80GNumber: reg80gResult.value,
     },
   };
 }
@@ -398,6 +448,17 @@ function validateAdminUpdateBySuperAdmin(body) {
     }
   }
 
+  if (body.panNumber !== undefined) {
+    const r = validatePanNumber(body.panNumber, false);
+    if (!r.valid) errors.push(r.message);
+    else data.panNumber = r.value;
+  }
+  if (body.registration80GNumber !== undefined) {
+    const r = validate80GRegistrationNumber(body.registration80GNumber, false);
+    if (!r.valid) errors.push(r.message);
+    else data.registration80GNumber = r.value;
+  }
+
   if (errors.length > 0) return { valid: false, errors };
   return { valid: true, data };
 }
@@ -486,4 +547,6 @@ module.exports = {
   validateOrganizationHierarchy,
   validateVerifyForgotOtp,
   validateResetPassword,
+  validatePanNumber,
+  validate80GRegistrationNumber,
 };

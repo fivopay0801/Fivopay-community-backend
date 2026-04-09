@@ -94,6 +94,16 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         field: 'organization_subtype',
       },
+      panNumber: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        field: 'pan_number',
+      },
+      registration80GNumber: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'registration_80g_number',
+      },
       otpHash: {
         type: DataTypes.STRING(255),
         allowNull: true,
@@ -193,11 +203,13 @@ module.exports = (sequelize, DataTypes) => {
     const {
       id, orgId, email, name, address, phone, profileImage, role,
       organizationType, organizationCategory, faith, organizationSubtype,
+      panNumber, registration80GNumber,
       isActive, createdAt, latitude, longitude
     } = this.get();
     return {
       id, orgId, email, name, address, phone, profileImage, role,
       organizationType, organizationCategory, faith, organizationSubtype,
+      panNumber, registration80GNumber,
       isActive, createdAt,
       latitude, longitude,
       googleMapLink: (latitude && longitude) ? `https://www.google.com/maps?q=${latitude},${longitude}` : null

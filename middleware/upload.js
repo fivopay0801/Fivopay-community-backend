@@ -82,6 +82,15 @@ const uploadProfileImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 }).single('profileImage');
 
+const uploadDevoteeDetailsFiles = multer({
+  storage: createS3Storage('devotees/'),
+  fileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 },
+}).fields([
+  { name: 'profileImage', maxCount: 1 },
+  { name: 'panCardImage', maxCount: 1 },
+]);
+
 const uploadEventImage = multer({
   storage: createS3Storage('events/'),
   fileFilter,
@@ -93,6 +102,24 @@ const optionalUploadProfileImage = (req, res, next) => {
   const isMultipart = (req.headers['content-type'] || '').includes('multipart/form-data');
   if (!isMultipart) return next();
   uploadProfileImage(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'File upload failed.',
+      });
+    }
+    next();
+  });
+};
+
+/** Only run multer when Content-Type is multipart (optional profileImage + panCardImage). */
+const optionalUploadDevoteeDetailsFiles = (req, res, next) => {
+  const isMultipart = (req.headers['content-type'] || '').includes('multipart/form-data');
+  if (!isMultipart) return next();
+  uploadDevoteeDetailsFiles(req, res, function (err) {
     if (err instanceof multer.MulterError) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -213,6 +240,7 @@ module.exports = {
   optionalUploadImage,
   optionalUploadEventImage,
   optionalUploadProfileImage,
+  optionalUploadDevoteeDetailsFiles,
   uploadOnboardingDocs,
   deleteFileFromS3,
 };

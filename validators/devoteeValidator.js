@@ -9,6 +9,7 @@ const OTP_REGEX = /^\d{4}$/;
 const NAME_MAX_LENGTH = 255;
 const EMAIL_MAX_LENGTH = 255;
 const CITY_MAX_LENGTH = 100;
+const PAN_MAX_LENGTH = 20;
 
 function validateMobile(mobile) {
   if (!mobile || typeof mobile !== 'string') {
@@ -77,6 +78,25 @@ function validateCity(city) {
   return { valid: true, value: trimmed || null };
 }
 
+function validatePanNumber(pan, required = false) {
+  if (!pan || typeof pan !== 'string') {
+    if (!required) return { valid: true, value: null };
+    return { valid: false, message: 'PAN number is required.' };
+  }
+  const trimmed = pan.trim().toUpperCase();
+  if (!trimmed) {
+    if (!required) return { valid: true, value: null };
+    return { valid: false, message: 'PAN number is required.' };
+  }
+  if (trimmed.length > PAN_MAX_LENGTH) {
+    return { valid: false, message: `PAN number must be at most ${PAN_MAX_LENGTH} characters.` };
+  }
+  if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(trimmed)) {
+    return { valid: false, message: 'Invalid PAN format. Example: ABCDE1234F.' };
+  }
+  return { valid: true, value: trimmed };
+}
+
 function validateOrganizationType(type) {
   if (!type || typeof type !== 'string') {
     return { valid: false, message: 'Organization type is required.' };
@@ -140,10 +160,12 @@ function validateDevoteeDetails(body) {
   const nameResult = validateName(body?.name, false);
   const emailResult = validateEmail(body?.email);
   const cityResult = validateCity(body?.city);
+  const panResult = validatePanNumber(body?.panNumber, false);
 
   if (!nameResult.valid) errors.push(nameResult.message);
   if (!emailResult.valid) errors.push(emailResult.message);
   if (!cityResult.valid) errors.push(cityResult.message);
+  if (!panResult.valid) errors.push(panResult.message);
 
   if (errors.length > 0) {
     return { valid: false, errors };
@@ -153,6 +175,7 @@ function validateDevoteeDetails(body) {
   if (nameResult.value != null) data.name = nameResult.value;
   if (emailResult.value != null) data.email = emailResult.value;
   if (cityResult.value != null) data.city = cityResult.value;
+  if (panResult.value != null) data.panNumber = panResult.value;
 
   return { valid: true, data };
 }
@@ -170,6 +193,7 @@ function validateCreateDonation(body) {
   const adminId = body.adminId;
   const eventId = body.eventId;
   const amount = body.amount;
+  const type = body.type;
 
   if (!adminId || !Number.isInteger(Number(adminId)) || Number(adminId) <= 0) {
     errors.push('Valid adminId (organization) is required.');
@@ -193,12 +217,29 @@ function validateCreateDonation(body) {
   }
 
   if (errors.length > 0) return { valid: false, errors };
+
+  let normalizedType = 'donation';
+  if (type !== undefined && type !== null && String(type).trim() !== '') {
+    const t = String(type).toLowerCase().trim();
+    if (!['donation', 'charity'].includes(t)) {
+      errors.push('type must be either donation or charity.');
+    } else {
+      normalizedType = t;
+    }
+  }
+
+  if (normalizedType === 'charity' && !eventIdNum) {
+    errors.push('For charity type, eventId is required.');
+  }
+
+  if (errors.length > 0) return { valid: false, errors };
   return {
     valid: true,
     data: {
       adminId: Number(adminId),
       eventId: eventIdNum,
       amountRupees: Math.floor(amountNum * 100) / 100,
+      donationType: normalizedType,
     },
   };
 }
@@ -238,4 +279,5 @@ module.exports = {
   validateSetFavorites,
   validateCreateDonation,
   validateVerifyDonation,
+  validatePanNumber,
 };

@@ -331,6 +331,8 @@ async function getAllAdmins(req, res, next) {
         'organizationCategory',
         'faith',
         'organizationSubtype',
+        'panNumber',
+        'registration80GNumber',
         'isActive',
         'latitude',
         'longitude',

@@ -7,7 +7,7 @@ const donationController = require('../controllers/donationController');
 const eventController = require('../controllers/eventController');
 const superAdminController = require('../controllers/superAdminController');
 const { authenticateDevotee } = require('../middleware/auth');
-const { optionalUploadProfileImage } = require('../middleware/upload');
+const { optionalUploadDevoteeDetailsFiles } = require('../middleware/upload');
 
 
 router.post('/send-otp', devoteeController.sendOtpHandler);
@@ -15,7 +15,7 @@ router.post('/verify-otp', devoteeController.verifyOtp);
 
 
 router.get('/me', authenticateDevotee, devoteeController.getMe);
-router.put('/details', authenticateDevotee, optionalUploadProfileImage, devoteeController.updateDetails);
+router.put('/details', authenticateDevotee, optionalUploadDevoteeDetailsFiles, devoteeController.updateDetails);
 
 
 router.get('/organization-types', devoteeController.getOrganizationTypes);
@@ -34,6 +34,7 @@ router.get('/organizations/:adminId/events', eventController.getOrganizationEven
 router.post('/donation/create-order', authenticateDevotee, donationController.createDonationOrder);
 router.post('/donation/verify', authenticateDevotee, donationController.verifyDonation);
 router.post('/donation/sync/:id', authenticateDevotee, donationController.checkDonationStatus);
+router.get('/donation/invoice/:id', authenticateDevotee, donationController.getDonationInvoice);
 router.get('/donations', authenticateDevotee, donationController.getMyDonations);
 router.get('/stats', authenticateDevotee, donationController.getStats);
 

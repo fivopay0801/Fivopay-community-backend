@@ -4,6 +4,7 @@ const { User, Devotee, DevoteeFavorite, Donation, Event, sequelize } = require('
 const { DONATION_STATUS } = require('../constants/donation');
 const { success, error } = require('../utils/response');
 const { createOrder, verifyPaymentSignature, fetchPayment, fetchOrderPayments } = require('../services/razorpayService');
+const { getNextReceiptNumberForAdmin } = require('../services/receiptService');
 const { validateCreateDonation, validateVerifyDonation } = require('../validators/devoteeValidator');
 
 /**
@@ -17,7 +18,7 @@ async function createDonationOrder(req, res, next) {
     if (!validation.valid) {
       return error(res, 'Validation failed', 422, validation.errors);
     }
-    const { adminId, amountRupees, eventId } = validation.data;
+    const { adminId, amountRupees, eventId, donationType } = validation.data;
     const devotee = req.devotee;
 
     const amountPaise = Math.round(amountRupees * 100);
@@ -47,6 +48,11 @@ async function createDonationOrder(req, res, next) {
       }
     }
 
+    const resolvedType = event && event.eventType === 'charity' ? 'charity' : 'donation';
+    if (donationType === 'charity' && resolvedType !== 'charity') {
+      return error(res, 'For charity type, eventId must belong to a charity event.', 422);
+    }
+
     const razorpayOrder = await createOrder(amountPaise, `don_${devotee.id}_${adminId}_${eventId || 'org'}_${Date.now()}`);
 
     const donation = await Donation.create({
@@ -56,6 +62,7 @@ async function createDonationOrder(req, res, next) {
       amount: amountRupees,
       razorpayOrderId: razorpayOrder.orderId,
       status: DONATION_STATUS.PENDING,
+      donationType: resolvedType,
     });
 
     const payload = {
@@ -67,12 +74,14 @@ async function createDonationOrder(req, res, next) {
       keyId: razorpayOrder.keyId,
       organizationId: adminId,
       organizationName: admin.name,
+      type: resolvedType,
     };
     if (event) {
       payload.eventId = event.id;
       payload.eventTitle = event.title;
       payload.eventRaisedAmountPaise = event.raisedAmountPaise;
       payload.eventTargetAmountPaise = event.targetAmountPaise;
+      payload.eventType = event.eventType;
     }
 
     return success(res, payload, 'Order created. Complete payment on client.', 201);
@@ -142,24 +151,41 @@ async function verifyDonation(req, res, next) {
       // Proceed without UTR/BankTxnId if fetch fails, but log it.
     }
 
-    await donation.update({
-      razorpayPaymentId,
-      razorpaySignature,
-      utr,
-      transactionId,
-      paymentMethod,
-      status: DONATION_STATUS.CAPTURED,
+    // Atomically mark captured + assign per-organization receipt number (10 digits).
+    await sequelize.transaction(async (t) => {
+      const locked = await Donation.findByPk(donation.id, { transaction: t, lock: t.LOCK.UPDATE });
+      if (!locked) return;
+
+      if (locked.status !== DONATION_STATUS.CAPTURED) {
+        const receiptNumber = locked.receiptNumber || await getNextReceiptNumberForAdmin(locked.adminId, t);
+        await locked.update(
+          {
+            razorpayPaymentId,
+            razorpaySignature,
+            utr,
+            transactionId,
+            paymentMethod,
+            status: DONATION_STATUS.CAPTURED,
+            receiptNumber,
+          },
+          { transaction: t }
+        );
+
+        if (locked.eventId) {
+          const ev = await Event.findByPk(locked.eventId, { transaction: t, lock: t.LOCK.UPDATE });
+          if (ev) {
+            const currentRaised = Number(ev.raisedAmountPaise || 0);
+            const donationAmountPaise = Math.round(Number(locked.amount) * 100);
+            await ev.update({ raisedAmountPaise: currentRaised + donationAmountPaise }, { transaction: t });
+          }
+        }
+      } else if (!locked.receiptNumber) {
+        const receiptNumber = await getNextReceiptNumberForAdmin(locked.adminId, t);
+        await locked.update({ receiptNumber }, { transaction: t });
+      }
     });
 
-    if (donation.eventId) {
-      const ev = await Event.findByPk(donation.eventId);
-      if (ev) {
-        const currentRaised = Number(ev.raisedAmountPaise || 0);
-        // donation.amount is in Rupees, convert to Paise for Event
-        const donationAmountPaise = Math.round(Number(donation.amount) * 100);
-        await ev.update({ raisedAmountPaise: currentRaised + donationAmountPaise });
-      }
-    }
+    await donation.reload({ include: [{ model: User, as: 'organization', attributes: ['id', 'orgId', 'name'] }] });
 
     return success(
       res,
@@ -258,6 +284,7 @@ function donationToResponse(donation) {
     id: plain.id,
     devoteeId: plain.devoteeId,
     organizationId: plain.adminId,
+    type: plain.donationType || plain.donation_type || 'donation',
     amount: (plain.amount * 100).toFixed(0), // return in paise for consistency if needed, or just remove if API consumer expects rupees
     amountRupees: parseFloat(plain.amount).toFixed(2),
     status: plain.status,
@@ -268,11 +295,81 @@ function donationToResponse(donation) {
     razorpayPaymentId: plain.razorpayPaymentId,
     razorpaySignature: plain.razorpaySignature,
     paymentMethod: plain.paymentMethod,
+    receiptNumber: plain.receiptNumber || plain.receipt_number || null,
     utr: plain.utr,
     transactionId: plain.transactionId,
     createdAt: plain.created_at,
     updatedAt: plain.updated_at,
   };
+}
+
+/**
+ * GET /api/devotee/donation/invoice/:id
+ * Returns invoice-ready data including 80G + PAN + receipt number.
+ */
+async function getDonationInvoice(req, res, next) {
+  try {
+    const devotee = req.devotee;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return error(res, 'Invalid donation ID.', 422);
+    }
+
+    const donation = await Donation.findOne({
+      where: { id, devoteeId: devotee.id },
+      include: [
+        {
+          model: User,
+          as: 'organization',
+          attributes: ['id', 'orgId', 'name', 'panNumber', 'registration80GNumber', 'address', 'phone'],
+        },
+        {
+          model: Event,
+          as: 'event',
+          attributes: ['id', 'title', 'eventType'],
+          required: false,
+        },
+      ],
+    });
+
+    if (!donation) {
+      return error(res, 'Donation not found.', 404);
+    }
+
+    const d = donation.get({ plain: true });
+    const org = d.organization || null;
+
+    return success(res, {
+      invoice: {
+        donationId: d.id,
+        type: d.donationType || 'donation',
+        receiptNumber: d.receiptNumber || null,
+        amountRupees: parseFloat(d.amount).toFixed(2),
+        amountPaise: String(Math.round(Number(d.amount) * 100)),
+        status: d.status,
+        donatedAt: d.created_at || d.createdAt,
+        organization: org ? {
+          id: org.id,
+          orgId: org.orgId,
+          name: org.name,
+          address: org.address,
+          phone: org.phone,
+          panNumber: org.panNumber,
+          registration80GNumber: org.registration80GNumber,
+        } : null,
+        event: d.event ? { id: d.event.id, title: d.event.title, eventType: d.event.eventType } : null,
+        devotee: {
+          id: devotee.id,
+          mobile: devotee.mobile,
+          name: devotee.name || null,
+          email: devotee.email || null,
+          city: devotee.city || null,
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 }
 
 /**
@@ -324,22 +421,39 @@ async function checkDonationStatus(req, res, next) {
       transactionId = razorpayPaymentId;
     }
 
-    await donation.update({
-      razorpayPaymentId,
-      utr,
-      transactionId,
-      paymentMethod,
-      status: DONATION_STATUS.CAPTURED,
+    await sequelize.transaction(async (t) => {
+      const locked = await Donation.findByPk(donation.id, { transaction: t, lock: t.LOCK.UPDATE });
+      if (!locked) return;
+
+      if (locked.status !== DONATION_STATUS.CAPTURED) {
+        const receiptNumber = locked.receiptNumber || await getNextReceiptNumberForAdmin(locked.adminId, t);
+        await locked.update(
+          {
+            razorpayPaymentId,
+            utr,
+            transactionId,
+            paymentMethod,
+            status: DONATION_STATUS.CAPTURED,
+            receiptNumber,
+          },
+          { transaction: t }
+        );
+
+        if (locked.eventId) {
+          const ev = await Event.findByPk(locked.eventId, { transaction: t, lock: t.LOCK.UPDATE });
+          if (ev) {
+            const currentRaised = Number(ev.raisedAmountPaise || 0);
+            const donationAmountPaise = Math.round(Number(locked.amount) * 100);
+            await ev.update({ raisedAmountPaise: currentRaised + donationAmountPaise }, { transaction: t });
+          }
+        }
+      } else if (!locked.receiptNumber) {
+        const receiptNumber = await getNextReceiptNumberForAdmin(locked.adminId, t);
+        await locked.update({ receiptNumber }, { transaction: t });
+      }
     });
 
-    if (donation.eventId) {
-      const ev = await Event.findByPk(donation.eventId);
-      if (ev) {
-        const currentRaised = Number(ev.raisedAmountPaise || 0);
-        const donationAmountPaise = Math.round(Number(donation.amount) * 100);
-        await ev.update({ raisedAmountPaise: currentRaised + donationAmountPaise });
-      }
-    }
+    await donation.reload({ include: [{ model: User, as: 'organization', attributes: ['id', 'orgId', 'name'] }] });
 
     return success(
       res,
@@ -358,4 +472,5 @@ module.exports = {
   checkDonationStatus,
   getMyDonations,
   getStats,
+  getDonationInvoice,
 };
